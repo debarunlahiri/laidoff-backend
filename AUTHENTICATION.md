@@ -46,7 +46,7 @@ The Next.js server mediates authentication through `/api/auth/*` and stores the 
 
 The browser receives the user/profile only. `/api/auth/session` restores it through the backend `/auth/me`. The protected layout redirects signed-out users to login and returns them to an allowed app route after authentication. Network failures preserve the cookie and offer retry rather than treating a temporary server failure as a logout.
 
-The existing non-authentication feature hooks still use local demo data. Connecting their feed, referral, chat, and network mutations to MySQL is a separate integration task. Authenticated names now replace the hardcoded account/composer/referral-author identity.
+The frontend now connects feed, referrals, network actions, messaging, notifications, company search, and workforce insights through its authenticated server proxy. Authenticated names now replace the hardcoded account/composer/referral-author identity.
 
 ## Backend endpoints
 

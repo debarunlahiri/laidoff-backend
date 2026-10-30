@@ -7,6 +7,9 @@ import { query, transaction } from "../db.js";
 import { HttpError, page, text, uuid, mustExist } from "../http.js";
 import { notify } from "../notifications.js";
 export const posts = Router();
+posts.get("/topics", async (req, res) =>
+  res.json(await query(postQueries.trendingTopics, [req.user.id])),
+);
 export const topics = [
   "Personal experience",
   "Offering referrals",

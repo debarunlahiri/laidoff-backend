@@ -79,6 +79,13 @@ export function createApp({ verifyGoogle } = {}) {
   app.use("/api/v1/conversations", messages);
   app.use("/api/v1/insights", insights);
   app.use("/api/v1/uploads", uploads);
+  app.get("/api/v1/notifications/summary", async (req, res) => {
+    const [summary] = await query(
+      applicationQueries.notificationSummary,
+      Array(4).fill(req.user.id),
+    );
+    res.json(summary);
+  });
   app.get("/api/v1/notifications", async (req, res) => {
     const { limit, offset } = page(req);
     res.json(

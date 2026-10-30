@@ -1,6 +1,6 @@
 # LayoffCircle backend
 
-Node.js 22+, Express 5, and MySQL REST API for the `laidoff-web` app. The frontend now uses the API for authentication. Feed, referrals, messaging, and other feature hooks still use local demo data.
+Node.js 22+, Express 5, and MySQL REST API for the `laidoff-web` app. The frontend now uses the API for authentication. Feature screens now use the authenticated frontend server proxy for API reads and writes.
 
 ## Start locally
 

@@ -1,6 +1,13 @@
 import { assertPagination } from "./query-guards.js";
 
 export const peopleQueries = {
+  findCompany:
+    "SELECT id,company_name AS name FROM companies WHERE id=? AND is_active=TRUE",
+  networkStats: `SELECT
+    (SELECT COUNT(*) FROM follows WHERE follower_id=?) AS following,
+    (SELECT COUNT(*) FROM connections WHERE (requester_id=? OR recipient_id=?) AND connection_status='accepted') AS connections,
+    (SELECT COUNT(*) FROM connections WHERE requester_id=? AND connection_status='pending') AS outgoingRequests,
+    (SELECT COUNT(*) FROM connections WHERE recipient_id=? AND connection_status='pending') AS incomingRequests`,
   searchCompanies: ({ limit, offset }) => {
     assertPagination(limit, offset);
     return `SELECT id,company_name AS name FROM companies WHERE is_active=TRUE AND company_name LIKE ? ORDER BY company_name LIMIT ${limit} OFFSET ${offset}`;

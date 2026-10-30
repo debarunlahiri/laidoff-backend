@@ -1,6 +1,9 @@
 import { assertPagination } from "./query-guards.js";
 
 export const applicationQueries = {
+  notificationSummary: `SELECT
+    (SELECT COUNT(*) FROM notifications WHERE user_id=? AND read_at IS NULL) AS unread,
+    (SELECT COUNT(*) FROM messages JOIN conversations ON conversations.id=messages.conversation_id WHERE (conversations.first_participant_user_id=? OR conversations.second_participant_user_id=?) AND messages.sender_id<>? AND messages.read_at IS NULL) AS unreadMessages`,
   checkDatabase: "SELECT 1",
   listNotifications: ({ limit, offset }) => {
     assertPagination(limit, offset);

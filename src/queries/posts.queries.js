@@ -1,6 +1,8 @@
 import { assertPagination, assertTable } from "./query-guards.js";
 
 export const postQueries = {
+  trendingTopics:
+    "SELECT post_topic AS topic,COUNT(*) AS posts FROM posts WHERE NOT EXISTS(SELECT 1 FROM hidden_posts WHERE hidden_posts.post_id=posts.id AND hidden_posts.user_id=?) GROUP BY post_topic ORDER BY posts DESC,post_topic LIMIT 4",
   findAuthor: "SELECT user_id,is_anonymous AS anonymous FROM posts WHERE id=?",
   findOwnedUpload: "SELECT id FROM uploads WHERE id=? AND user_id=?",
   createPost:

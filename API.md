@@ -36,7 +36,7 @@ Register/login return `{token, expiresAt, user}`. Passwords are 12–128 charact
 - `POST /auth/google/link`: authenticated `{idToken}`; requires the same verified email as the signed-in account.
 - `GET /auth/providers`: authenticated list of linked providers.
 
-Google email collisions require explicit linking after password sign-in. Configure Firebase as described in [AUTHENTICATION.md](AUTHENTICATION.md). The frontend auth pages are now connected through a Next.js server proxy with an HttpOnly session cookie; the remaining feature hooks are still demo-only.
+Google email collisions require explicit linking after password sign-in. Configure Firebase as described in [AUTHENTICATION.md](AUTHENTICATION.md). The frontend auth pages are now connected through a Next.js server proxy with an HttpOnly session cookie; the feature hooks now use the authenticated backend proxy.
 
 ## Feed
 
@@ -121,10 +121,19 @@ User submissions are always `user_reported`. Clients cannot set verified status.
 
 Configure a frontend API origin such as `NEXT_PUBLIC_API_URL=http://localhost:9090/api/v1`, add an authentication flow, then replace each demo hook's local actions with the matching API calls. Fetch profile/session after login, pass bearer tokens, and refetch or optimistically reconcile mutations. Keep filters as query parameters; invalidate related feed/referral/inbox/notification queries after updates. Handle 401 by returning to sign-in and validation errors inline.
 
-Authentication screens and session handling are connected in `laidoff-web`; other feature hooks retain their dummy-data behavior. The API uses normalized company/user UUIDs and UTC timestamps, so map those into the existing UI types when connecting it. Reaction counts and request status come from the server, not local arrays.
+Authentication screens and session handling are connected in `laidoff-web`; feature hooks also connect through the authenticated proxy. The API uses normalized company/user UUIDs and UTC timestamps, so map those into the existing UI types when connecting it. Reaction counts and request status come from the server, not local arrays.
 
 Implementation references: [Express 5 error handling](https://expressjs.com/en/5x/guide/error-handling/) and [MySQL2 prepared statements](https://sidorares.github.io/node-mysql2/docs/documentation/prepared-statements).
 
 ## Request tracing
 
 Every response includes `X-Request-Id`. Use it to correlate database API, SQL, application, and audit logs. Database storage now uses descriptive column names; the response/request field names documented here remain compatible. See [LOGGING.md](LOGGING.md) and [SCHEMA.md](SCHEMA.md) for full details.
+
+## Frontend integration support
+
+- `GET /companies/:id`: resolve the selected company in autocomplete.
+- `GET /network/stats`: connection/following and incoming/outgoing request totals.
+- `GET /posts/topics`: topic counts for conversation discovery.
+- `GET /notifications/summary`: unread notification and private-message totals.
+
+Feed responses also include caller following state and the latest approved community note/source. Anonymous authors do not expose following state. The frontend uses UUIDs for mutations and server-provided counts; authentication stays in its HttpOnly cookie.

@@ -7,6 +7,20 @@ import { query, transaction } from "../db.js";
 import { HttpError, page, text, uuid, mustExist } from "../http.js";
 import { notify } from "../notifications.js";
 export const people = Router();
+people.get("/companies/:id", async (req, res) => {
+  const [company] = await query(peopleQueries.findCompany, [
+    uuid(req.params.id),
+  ]);
+  if (!company) throw new HttpError(404, "Company not found");
+  res.json(company);
+});
+people.get("/network/stats", async (req, res) => {
+  const [stats] = await query(
+    peopleQueries.networkStats,
+    Array(5).fill(req.user.id),
+  );
+  res.json(stats);
+});
 people.get("/companies", async (req, res) => {
   const { limit, offset } = page(req);
   const search = z
