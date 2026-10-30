@@ -72,7 +72,18 @@ export function createApp({ verifyGoogle } = {}) {
     authLimiter,
     createAuthenticationRouter({ verifyGoogle }),
   );
-  app.use("/api/v1", authenticate);
+  app.use("/api/v1", (req, res, next) => {
+    const publicRead =
+      req.method === "GET" &&
+      /^(\/posts(?:\/topics|\/[a-zA-Z0-9-]+\/comments)?|\/referrals|\/companies(?:\/[a-zA-Z0-9-]+)?|\/users(?:\/[a-zA-Z0-9-]+)?|\/insights(?:\/[-a-zA-Z0-9_]+)*)\/?$/.test(
+        req.path,
+      );
+    if (publicRead && !req.headers.authorization) {
+      req.user = { id: null };
+      return next();
+    }
+    return authenticate(req, res, next);
+  });
   app.use("/api/v1", people);
   app.use("/api/v1/posts", posts);
   app.use("/api/v1/referrals", referrals);
