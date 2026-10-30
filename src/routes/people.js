@@ -1,0 +1,158 @@
+import { peopleQueries } from "../queries/people.queries.js";
+import { buildProfileUpdateQuery } from "../queries/profile-update.queries.js";
+import { Router } from "express";
+import { randomUUID } from "node:crypto";
+import { z } from "zod";
+import { query, transaction } from "../db.js";
+import { HttpError, page, text, uuid, mustExist } from "../http.js";
+import { notify } from "../notifications.js";
+export const people = Router();
+people.get("/companies", async (req, res) => {
+  const { limit, offset } = page(req);
+  const search = z
+    .string()
+    .max(160)
+    .parse(req.query.search ?? "");
+  res.json(
+    await query(peopleQueries.searchCompanies({ limit, offset }), [
+      "%" + search + "%",
+    ]),
+  );
+});
+people.get("/users", async (req, res) => {
+  const { limit, offset } = page(req);
+  const search = z
+    .string()
+    .max(160)
+    .parse(req.query.search ?? "");
+  res.json(
+    await query(peopleQueries.searchPeople({ limit, offset }), [
+      req.user.id,
+      req.user.id,
+      "%" + search + "%",
+      "%" + search + "%",
+    ]),
+  );
+});
+people.get("/users/:id", async (req, res) => {
+  const rows = await query(peopleQueries.findPublicProfile, [
+    uuid(req.params.id),
+  ]);
+  if (!rows.length) throw new HttpError(404, "User not found");
+  res.json(rows[0]);
+});
+people.patch("/me", async (req, res) => {
+  const body = z
+    .object({
+      name: text(100),
+      role: z.string().trim().max(160),
+      about: z.string().max(5000),
+      skills: z.array(text(80)).max(30),
+      nextChapter: z.string().max(3000),
+      openToWork: z.boolean(),
+      location: z.string().trim().max(160),
+      websiteUrl: z
+        .url()
+        .max(2048)
+        .refine((value) => /^https?:\/\//.test(value))
+        .nullable(),
+      linkedinProfileUrl: z
+        .url()
+        .max(2048)
+        .refine((value) => /^https?:\/\//.test(value))
+        .nullable(),
+    })
+    .partial()
+    .strict()
+    .parse(req.body);
+  if (!Object.keys(body).length)
+    throw new HttpError(400, "No profile fields supplied");
+  const profileQuery = buildProfileUpdateQuery(body, req.user.id);
+  await query(profileQuery.sql, profileQuery.params);
+  res.json({ updated: true });
+});
+people.put("/users/:id/follow", async (req, res) => {
+  const other = uuid(req.params.id);
+  if (other === req.user.id) throw new HttpError(400, "Cannot follow yourself");
+  await mustExist(query, "users", other);
+  await query(peopleQueries.createFollow, [req.user.id, other]);
+  res.json({ following: true });
+});
+people.delete("/users/:id/follow", async (req, res) => {
+  await query(peopleQueries.deleteFollow, [req.user.id, uuid(req.params.id)]);
+  res.status(204).end();
+});
+people.get("/connections", async (req, res) => {
+  const { limit, offset } = page(req);
+  res.json(
+    await query(peopleQueries.listConnections({ limit, offset }), [
+      req.user.id,
+      req.user.id,
+      req.user.id,
+    ]),
+  );
+});
+people.post("/connections", async (req, res) => {
+  const { userId } = z.object({ userId: z.uuid() }).parse(req.body);
+  if (userId === req.user.id)
+    throw new HttpError(400, "Cannot connect to yourself");
+  const result = await transaction(async (c) => {
+    await mustExist(query, "users", userId, c);
+    const pair = [req.user.id, userId].sort().join(":");
+    const existing = await query(peopleQueries.findConnectionByPair, [pair], c);
+    if (existing.length) return existing[0];
+    const id = randomUUID();
+    await query(
+      peopleQueries.createConnection,
+      [id, req.user.id, userId, pair],
+      c,
+    );
+    await notify(
+      c,
+      userId,
+      req.user,
+      "connection",
+      id,
+      `${req.user.name} sent you a connection request.`,
+    );
+    return { id, status: "pending" };
+  });
+  res.status(201).json(result);
+});
+people.patch("/connections/:id", async (req, res) => {
+  const { status } = z
+    .object({ status: z.literal("accepted") })
+    .parse(req.body);
+  const result = await transaction(async (c) => {
+    const [row] = await query(
+      peopleQueries.lockConnection,
+      [uuid(req.params.id)],
+      c,
+    );
+    if (!row) throw new HttpError(404, "Connection not found");
+    if (row.recipient_id !== req.user.id)
+      throw new HttpError(403, "Only the recipient can accept");
+    if (row.status !== "accepted") {
+      await query(peopleQueries.acceptConnection, [status, row.id], c);
+      await notify(
+        c,
+        row.requester_id,
+        req.user,
+        "connection_accepted",
+        row.id,
+        `${req.user.name} accepted your connection request.`,
+      );
+    }
+    return { id: row.id, status };
+  });
+  res.json(result);
+});
+people.delete("/connections/:id", async (req, res) => {
+  const result = await query(peopleQueries.deleteConnection, [
+    uuid(req.params.id),
+    req.user.id,
+    req.user.id,
+  ]);
+  if (!result.affectedRows) throw new HttpError(404, "Connection not found");
+  res.status(204).end();
+});

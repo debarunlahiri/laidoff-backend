@@ -1,0 +1,98 @@
+CREATE TABLE users (
+ id CHAR(36) PRIMARY KEY, email VARCHAR(254) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL,
+ name VARCHAR(100) NOT NULL, role VARCHAR(160) NOT NULL DEFAULT '', about TEXT,
+ skills JSON, next_chapter TEXT, open_to_work BOOLEAN NOT NULL DEFAULT FALSE,
+ created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB;
+CREATE TABLE sessions (
+ token_hash CHAR(64) PRIMARY KEY, user_id CHAR(36) NOT NULL, expires_at DATETIME(3) NOT NULL,
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE, INDEX(expires_at)
+) ENGINE=InnoDB;
+CREATE TABLE companies (id CHAR(36) PRIMARY KEY, name VARCHAR(160) NOT NULL UNIQUE) ENGINE=InnoDB;
+CREATE TABLE uploads (
+ id CHAR(36) PRIMARY KEY, user_id CHAR(36) NOT NULL, filename VARCHAR(100) NOT NULL UNIQUE,
+ created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE posts (
+ id CHAR(36) PRIMARY KEY, user_id CHAR(36) NOT NULL, text TEXT NOT NULL, topic VARCHAR(80) NOT NULL DEFAULT 'General discussion',
+ company_id CHAR(36), anonymous BOOLEAN NOT NULL DEFAULT FALSE, upload_id CHAR(36),
+ created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+ FOREIGN KEY(company_id) REFERENCES companies(id), FOREIGN KEY(upload_id) REFERENCES uploads(id),
+ INDEX(created_at), INDEX(topic), INDEX(company_id)
+) ENGINE=InnoDB;
+CREATE TABLE reactions (
+ post_id CHAR(36) NOT NULL, user_id CHAR(36) NOT NULL, reaction ENUM('like','dislike') NOT NULL,
+ PRIMARY KEY(post_id,user_id), FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE,
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE bookmarks (
+ post_id CHAR(36) NOT NULL, user_id CHAR(36) NOT NULL, PRIMARY KEY(post_id,user_id),
+ FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE, FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE reposts LIKE bookmarks;
+ALTER TABLE reposts ADD FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE, ADD FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE;
+CREATE TABLE hidden_posts LIKE bookmarks;
+ALTER TABLE hidden_posts ADD FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE, ADD FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE;
+CREATE TABLE comments (
+ id CHAR(36) PRIMARY KEY, post_id CHAR(36) NOT NULL, user_id CHAR(36) NOT NULL, text TEXT NOT NULL,
+ created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE, FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE, INDEX(post_id,created_at)
+) ENGINE=InnoDB;
+CREATE TABLE follows (
+ follower_id CHAR(36) NOT NULL, followed_id CHAR(36) NOT NULL, PRIMARY KEY(follower_id,followed_id),
+ FOREIGN KEY(follower_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY(followed_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE connections (
+ id CHAR(36) PRIMARY KEY, requester_id CHAR(36) NOT NULL, recipient_id CHAR(36) NOT NULL,
+ pair_key VARCHAR(73) NOT NULL UNIQUE, status ENUM('pending','accepted') NOT NULL DEFAULT 'pending',
+ created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ FOREIGN KEY(requester_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY(recipient_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE referrals (
+ id CHAR(36) PRIMARY KEY, user_id CHAR(36) NOT NULL, company_id CHAR(36) NOT NULL,
+ title VARCHAR(120) NOT NULL, location VARCHAR(160) NOT NULL, skills VARCHAR(200) NOT NULL, description TEXT,
+ status ENUM('open','closed') NOT NULL DEFAULT 'open', created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY(company_id) REFERENCES companies(id), INDEX(created_at)
+) ENGINE=InnoDB;
+CREATE TABLE referral_requests (
+ referral_id CHAR(36) NOT NULL, user_id CHAR(36) NOT NULL,
+ status ENUM('pending','accepted','declined') NOT NULL DEFAULT 'pending',
+ created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY(referral_id,user_id),
+ FOREIGN KEY(referral_id) REFERENCES referrals(id) ON DELETE CASCADE, FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE conversations (
+ id CHAR(36) PRIMARY KEY, user_a CHAR(36) NOT NULL, user_b CHAR(36) NOT NULL,
+ pair_key VARCHAR(73) NOT NULL UNIQUE, created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ FOREIGN KEY(user_a) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY(user_b) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE messages (
+ id CHAR(36) PRIMARY KEY, conversation_id CHAR(36) NOT NULL, sender_id CHAR(36) NOT NULL,
+ text TEXT NOT NULL, read_at DATETIME(3), created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+ FOREIGN KEY(sender_id) REFERENCES users(id) ON DELETE CASCADE, INDEX(conversation_id,created_at)
+) ENGINE=InnoDB;
+CREATE TABLE notifications (
+ id CHAR(36) PRIMARY KEY, user_id CHAR(36) NOT NULL, actor_id CHAR(36) NOT NULL,
+ type VARCHAR(40) NOT NULL, resource_id CHAR(36), text VARCHAR(300) NOT NULL, read_at DATETIME(3),
+ created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY(actor_id) REFERENCES users(id) ON DELETE CASCADE, INDEX(user_id,created_at)
+) ENGINE=InnoDB;
+CREATE TABLE community_notes (
+ id CHAR(36) PRIMARY KEY, post_id CHAR(36) NOT NULL, user_id CHAR(36) NOT NULL,
+ text TEXT NOT NULL, source_url VARCHAR(2048) NOT NULL, status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+ created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE,
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE reports (
+ id CHAR(36) PRIMARY KEY, post_id CHAR(36) NOT NULL, user_id CHAR(36) NOT NULL, reason VARCHAR(1000) NOT NULL,
+ created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), UNIQUE(post_id,user_id),
+ FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE, FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE workforce_reports (
+ id CHAR(36) PRIMARY KEY, company_id CHAR(36) NOT NULL, user_id CHAR(36) NOT NULL,
+ event_date DATE NOT NULL, roles_affected INT UNSIGNED NOT NULL, headcount INT UNSIGNED, hires INT UNSIGNED,
+ source_url VARCHAR(2048) NOT NULL, status ENUM('user_reported','verified') NOT NULL DEFAULT 'user_reported',
+ created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ FOREIGN KEY(company_id) REFERENCES companies(id), FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE, INDEX(event_date)
+) ENGINE=InnoDB;

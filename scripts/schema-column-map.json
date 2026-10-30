@@ -1,0 +1,65 @@
+{
+  "users": {
+    "name": "full_name",
+    "role": "professional_headline",
+    "about": "biography",
+    "skills": "professional_skills",
+    "next_chapter": "career_objective"
+  },
+  "companies": {
+    "name": "company_name"
+  },
+  "uploads": {
+    "filename": "stored_file_name"
+  },
+  "posts": {
+    "text": "post_content",
+    "topic": "post_topic",
+    "anonymous": "is_anonymous"
+  },
+  "reactions": {
+    "reaction": "reaction_type"
+  },
+  "comments": {
+    "text": "comment_content"
+  },
+  "connections": {
+    "pair_key": "participant_pair_key",
+    "status": "connection_status"
+  },
+  "referrals": {
+    "title": "job_title",
+    "location": "job_location",
+    "skills": "required_skills",
+    "description": "job_description",
+    "status": "referral_status"
+  },
+  "referral_requests": {
+    "status": "request_status"
+  },
+  "conversations": {
+    "user_a": "first_participant_user_id",
+    "user_b": "second_participant_user_id",
+    "pair_key": "participant_pair_key"
+  },
+  "messages": {
+    "text": "message_content"
+  },
+  "notifications": {
+    "type": "notification_type",
+    "text": "notification_message"
+  },
+  "community_notes": {
+    "text": "note_content",
+    "status": "review_status"
+  },
+  "reports": {
+    "reason": "report_reason"
+  },
+  "workforce_reports": {
+    "roles_affected": "reported_roles_affected",
+    "headcount": "reported_headcount",
+    "hires": "reported_hires",
+    "status": "verification_status"
+  }
+}

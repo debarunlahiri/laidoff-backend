@@ -1,0 +1,8 @@
+{
+  "watch": ["src", ".env"],
+  "ext": "js,json,env",
+  "ignore": ["node_modules", "uploads", ".log-outbox", "test", "database"],
+  "signal": "SIGTERM",
+  "delay": "300",
+  "exec": "node --env-file-if-exists=.env src/server.js"
+}
