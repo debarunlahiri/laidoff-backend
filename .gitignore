@@ -12,3 +12,7 @@ coverage/
 
 *service-account*.json
 firebase-adminsdk*.json
+
+# Firebase Admin credentials
+serviceAccountKey.json
+private-uploads/

@@ -1,4 +1,5 @@
 import { applicationQueries } from "./queries/application.queries.js";
+import { dailyReminderQueries } from "./queries/daily-reminders.queries.js";
 import { requestLogging } from "./request-logging.js";
 import { applicationLog } from "./logger.js";
 import express from "express";
@@ -10,6 +11,7 @@ import multer from "multer";
 import { config } from "./config.js";
 import { query } from "./db.js";
 import { authenticate } from "./auth.js";
+import { issueTicket } from "./realtime.js";
 import { HttpError, page, uuid } from "./http.js";
 import { createAuthenticationRouter } from "./routes/auth.js";
 import { people } from "./routes/people.js";
@@ -18,6 +20,7 @@ import { referrals } from "./routes/referrals.js";
 import { messages } from "./routes/messages.js";
 import { insights } from "./routes/insights.js";
 import { uploads } from "./routes/uploads.js";
+import { search } from "./routes/search.js";
 export function createApp({ verifyGoogle } = {}) {
   const app = express();
   app.disable("x-powered-by");
@@ -75,7 +78,7 @@ export function createApp({ verifyGoogle } = {}) {
   app.use("/api/v1", (req, res, next) => {
     const publicRead =
       req.method === "GET" &&
-      /^(\/posts(?:\/topics|\/[a-zA-Z0-9-]+\/comments)?|\/referrals|\/companies(?:\/[a-zA-Z0-9-]+)?|\/users(?:\/[a-zA-Z0-9-]+)?|\/insights(?:\/[-a-zA-Z0-9_]+)*)\/?$/.test(
+      /^(\/daily-reminder|\/search|\/posts(?:\/topics|\/topic-options|\/[a-zA-Z0-9-]+(?:\/comments)?)?|\/referrals|\/companies(?:\/[a-zA-Z0-9-]+)?|\/users(?:\/[a-zA-Z0-9-]+(?:\/stats)?)?|\/insights(?:\/[-a-zA-Z0-9_]+)*)\/?$/.test(
         req.path,
       );
     if (publicRead && !req.headers.authorization) {
@@ -84,12 +87,33 @@ export function createApp({ verifyGoogle } = {}) {
     }
     return authenticate(req, res, next);
   });
+  // One-time ticket for opening the WebSocket (see realtime.js).
+  app.post("/api/v1/ws-ticket", (req, res) => {
+    res.json({ ticket: issueTicket(req.user.id), expiresIn: 30 });
+  });
+  // One reminder per UTC day, rotating through the active rows.
+  app.get("/api/v1/daily-reminder", async (_req, res) => {
+    const rows = await query(dailyReminderQueries.listActive);
+    if (!rows.length) return res.status(204).end();
+    res.json(rows[Math.floor(Date.now() / 86400000) % rows.length]);
+  });
   app.use("/api/v1", people);
   app.use("/api/v1/posts", posts);
   app.use("/api/v1/referrals", referrals);
   app.use("/api/v1/conversations", messages);
   app.use("/api/v1/insights", insights);
   app.use("/api/v1/uploads", uploads);
+  app.use(
+    "/api/v1/search",
+    rateLimit({
+      windowMs: 60000,
+      limit: 120,
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+      message: { error: { message: "Too many searches. Slow down a little." } },
+    }),
+    search,
+  );
   app.get("/api/v1/notifications/summary", async (req, res) => {
     const [summary] = await query(
       applicationQueries.notificationSummary,
@@ -177,6 +201,21 @@ export function createApp({ verifyGoogle } = {}) {
             ? 400
             : 500;
 
+    // Development only: print and return the real error (never in production).
+    const debug =
+      status === 500 && config.NODE_ENV === "development"
+        ? {
+            name: error.name,
+            message: error.message,
+            code: error.code,
+            sqlState: error.sqlState,
+            sqlMessage: error.sqlMessage,
+            stack: (error.stack ?? "").split("\n").slice(0, 12),
+          }
+        : undefined;
+    if (debug)
+      console.error(`[dev] ${_req.method} ${_req.originalUrl} -> 500`, error);
+
     res.status(status).json({
       error: {
         message:
@@ -185,6 +224,7 @@ export function createApp({ verifyGoogle } = {}) {
             : error.type === "entity.parse.failed"
               ? "Invalid JSON"
               : error.message,
+        ...(debug && { debug }),
       },
     });
   });

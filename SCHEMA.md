@@ -157,6 +157,20 @@ Indexes: `PRIMARY` (`id`); `pair_key` (`participant_pair_key`); `idx_connections
 
 Indexes: `PRIMARY` (`id`); `pair_key` (`participant_pair_key`); `user_a` (`first_participant_user_id`); `user_b` (`second_participant_user_id`).
 
+## daily_reminders
+
+| Column                     | MySQL type     | Nullable | Default              | Key / lifecycle                |
+| -------------------------- | -------------- | -------- | -------------------- | ------------------------------ |
+| `id`                       | `char(36)`     | NO       | NULL                 | PRI                            |
+| `reminder_quote`           | `varchar(300)` | NO       | NULL                 | UNI                            |
+| `reminder_supporting_text` | `varchar(300)` | NO       | NULL                 |                                |
+| `display_order`            | `int`          | NO       | 0                    |                                |
+| `is_active`                | `tinyint(1)`   | NO       | 1                    |                                |
+| `created_at`               | `timestamp(3)` | NO       | CURRENT_TIMESTAMP(3) |                                |
+| `updated_at`               | `timestamp(3)` | NO       | CURRENT_TIMESTAMP(3) | on update CURRENT_TIMESTAMP(3) |
+
+Indexes: `PRIMARY` (`id`); `uq_daily_reminders_quote` (`reminder_quote`); `idx_daily_reminders_active_order` (`is_active`,`display_order`,`id`). Added by migration 005; rows are editable content. Add, reorder or retire reminders by changing rows, not code.
+
 ## database_query_logs
 
 | Column                   | MySQL type            | Nullable | Default              | Key / lifecycle |
@@ -296,20 +310,21 @@ Indexes: `PRIMARY` (`referral_id`, `user_id`); `user_id` (`user_id`); `fk_referr
 
 ## reports
 
-| Column                | MySQL type                                           | Nullable | Default              | Key / lifecycle                |
-| --------------------- | ---------------------------------------------------- | -------- | -------------------- | ------------------------------ |
-| `id`                  | `char(36)`                                           | NO       | NULL                 | PRI                            |
-| `post_id`             | `char(36)`                                           | NO       | NULL                 | MUL                            |
-| `user_id`             | `char(36)`                                           | NO       | NULL                 | MUL                            |
-| `report_reason`       | `varchar(1000)`                                      | NO       | NULL                 |                                |
-| `created_at`          | `timestamp(3)`                                       | NO       | CURRENT_TIMESTAMP(3) |                                |
-| `updated_at`          | `timestamp(3)`                                       | NO       | CURRENT_TIMESTAMP(3) | on update CURRENT_TIMESTAMP(3) |
-| `report_status`       | `enum('pending','reviewing','resolved','dismissed')` | NO       | pending              | MUL                            |
-| `resolution_summary`  | `varchar(2000)`                                      | YES      | NULL                 |                                |
-| `reviewed_at`         | `datetime(3)`                                        | YES      | NULL                 |                                |
-| `reviewed_by_user_id` | `char(36)`                                           | YES      | NULL                 | MUL                            |
+| Column                | MySQL type                                                           | Nullable | Default              | Key / lifecycle                |
+| --------------------- | -------------------------------------------------------------------- | -------- | -------------------- | ------------------------------ |
+| `id`                  | `char(36)`                                                           | NO       | NULL                 | PRI                            |
+| `post_id`             | `char(36)`                                                           | NO       | NULL                 | MUL                            |
+| `user_id`             | `char(36)`                                                           | NO       | NULL                 | MUL                            |
+| `report_category`     | `enum('spam','harassment','misinformation','inappropriate','other')` | NO       | other                | MUL                            |
+| `report_reason`       | `varchar(1000)`                                                      | NO       | NULL                 |                                |
+| `created_at`          | `timestamp(3)`                                                       | NO       | CURRENT_TIMESTAMP(3) |                                |
+| `updated_at`          | `timestamp(3)`                                                       | NO       | CURRENT_TIMESTAMP(3) | on update CURRENT_TIMESTAMP(3) |
+| `report_status`       | `enum('pending','reviewing','resolved','dismissed')`                 | NO       | pending              | MUL                            |
+| `resolution_summary`  | `varchar(2000)`                                                      | YES      | NULL                 |                                |
+| `reviewed_at`         | `datetime(3)`                                                        | YES      | NULL                 |                                |
+| `reviewed_by_user_id` | `char(36)`                                                           | YES      | NULL                 | MUL                            |
 
-Indexes: `PRIMARY` (`id`); `post_id` (`post_id`, `user_id`); `user_id` (`user_id`); `fk_reports_reviewer` (`reviewed_by_user_id`); `idx_reports_status_created` (`report_status`, `created_at`).
+Indexes: `PRIMARY` (`id`); `post_id` (`post_id`, `user_id`); `user_id` (`user_id`); `fk_reports_reviewer` (`reviewed_by_user_id`); `idx_reports_status_created` (`report_status`, `created_at`); `idx_reports_category` (`report_category`).
 
 ## reposts
 
@@ -375,6 +390,7 @@ Indexes: `PRIMARY` (`id`); `filename` (`stored_file_name`); `idx_uploads_owner_c
 | `email_verified_at`     | `datetime(3)`                              | YES      | NULL                 |                                |
 | `last_login_at`         | `datetime(3)`                              | YES      | NULL                 |                                |
 | `profile_location`      | `varchar(160)`                             | NO       |                      |                                |
+| `profile_image_url`     | `varchar(2048)`                            | YES      | NULL                 |                                |
 | `website_url`           | `varchar(2048)`                            | YES      | NULL                 |                                |
 | `linkedin_profile_url`  | `varchar(2048)`                            | YES      | NULL                 |                                |
 | `profile_visibility`    | `enum('public','members')`                 | NO       | members              |                                |
@@ -401,3 +417,39 @@ Indexes: `PRIMARY` (`id`); `email` (`email`); `idx_users_status_created` (`accou
 | `verification_summary`    | `varchar(2000)`                    | YES      | NULL                 |                                |
 
 Indexes: `PRIMARY` (`id`); `company_id` (`company_id`); `user_id` (`user_id`); `event_date` (`event_date`); `fk_workforce_reports_verifier` (`verified_by_user_id`).
+
+## comments.parent_comment_id / comment_reactions (migration 008)
+
+`comments.parent_comment_id` (nullable, FK to `comments.id`, cascade) links a reply to its top-level comment; replies never nest deeper. `comment_reactions(comment_id, user_id, reaction_type like|dislike, created_at, updated_at)` stores one reaction per user per comment.
+
+## users.cover_image_url (migration 009)
+
+Optional path of the member's uploaded cover image. `PUT /me/images/profile|cover` with `{uploadId}` (an upload the caller owns) sets the avatar or cover; `DELETE /me/images/profile|cover` clears it. A Google sign-in no longer overwrites an uploaded profile photo.
+
+## Referral feedback, filters and request forms (migration 011)
+
+`referrals` gains `work_mode`, `experience_level`, `min_experience_years` and `request_fields` (JSON list of questions the referrer wants answered). `referral_requests` gains `request_message` and `request_answers` (JSON). `referral_feedback(referral_id, user_id, feedback_type helpful|not_helpful)` holds one vote per requester. Files go in `referral_documents` (stored under `PRIVATE_UPLOAD_DIR`, never served statically) and are linked to a request through `referral_request_documents`.
+
+## message_attachments
+
+Files attached to chat messages (`013_message_attachments.sql`): `id`, `message_id` (FK to `messages`, cascade), `stored_file_name`, `original_file_name`, `mime_type`, `file_size_bytes`, `created_at`. Files are stored under `PRIVATE_UPLOAD_DIR` and only served to the two conversation participants. A message with only files has an empty `message_content`.
+
+## post_polls, post_poll_options, post_poll_votes
+
+Polls on posts (`014_polls.sql`). `post_polls(post_id, allow_multiple, closes_at)` holds one poll per post (`closes_at` NULL means it never closes). `post_poll_options(id, post_id, option_text, display_position)` holds 2-6 options. `post_poll_votes(option_id, post_id, user_id)` has one row per chosen option; single-choice polls are enforced in the API by replacing the member's votes. All three cascade when the post is deleted.
+
+## post_shares
+
+Shares of a post (`015_post_shares.sql`). `post_shares(post_id, user_id, created_at)` has one row per member per post; the share count is the row count. Cascades when the post or user is deleted.
+
+## post_views
+
+Who viewed a post (`016_post_views.sql`). `post_views(post_id, user_id, view_count, device, source, first_viewed_at, last_viewed_at)` has one row per member per post; `device` is mobile/tablet/desktop and `source` is where it was opened (`detail` or `feed`). Cascades when the post or user is deleted. Only the post's author can list viewers.
+
+## referral_shares
+
+Shares of a referral (`017_referral_shares.sql`). `referral_shares(referral_id, user_id, created_at)` has one row per member per referral; the share count is the row count. Cascades when the referral or user is deleted.
+
+## comments.upload_id, comment_reports
+
+`comments.upload_id` (`018_comment_media_reports.sql`) optionally points at a photo or GIF in `uploads` (set to NULL if the upload is removed). `comment_reports(id, comment_id, user_id, report_category, report_reason, report_status, created_at)` holds reports against comments, one per member per comment, with the same categories and review statuses as post reports. Cascades when the comment or user is deleted.

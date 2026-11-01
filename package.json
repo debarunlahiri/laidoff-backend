@@ -11,10 +11,12 @@
     "start": "node --env-file-if-exists=.env src/server.js",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.js",
     "db:seed": "node --env-file-if-exists=.env scripts/seed.js",
+    "db:seed:community": "node --env-file-if-exists=.env scripts/seed-community.js",
     "test": "node --import ./test/setup.js --test test/*.test.js",
     "test:integration": "node --env-file-if-exists=.env --test test/integration/*.test.js",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:check": "node --env-file-if-exists=.env scripts/check-schema.js"
   },
   "dependencies": {
     "cors": "^2.8.6",
@@ -25,6 +27,7 @@
     "multer": "^2.5.0",
     "mysql2": "^3.24.6",
     "sharp": "^0.35.5",
+    "ws": "^8.22.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {

@@ -96,6 +96,102 @@
       "comments": 9,
       "reposts": 5,
       "note": "This event is user-reported. The number of affected roles has not been independently confirmed. Personal reports should not be interpreted as company-wide totals."
+    },
+    {
+      "name": "Daniel Okafor",
+      "role": "Backend Engineer · Previously at Uber",
+      "topic": "Layoff updates",
+      "company": "Uber",
+      "text": "Our team was restructured this week. If you were affected too, here is what helped me in the first 48 hours: file for benefits, back up your contacts, and tell three people you trust. You do not have to figure this out alone.",
+      "open": true
+    },
+    {
+      "name": "Meera Iyer",
+      "role": "Data Analyst at Swiggy",
+      "topic": "Offering referrals",
+      "company": "Swiggy",
+      "text": "We have two analyst openings on the growth team at Swiggy. Happy to refer anyone with solid SQL and a curious mind. Send me a short note about what you have built.",
+      "open": false
+    },
+    {
+      "name": "Tom Becker",
+      "role": "Engineering Manager",
+      "topic": "Career advice",
+      "company": "Spotify",
+      "text": "Interview tip I wish I knew earlier: prepare three stories, not thirty answers. Each story should cover the situation, your decision, and what you would change. You can reuse them for almost every question.",
+      "open": false
+    },
+    {
+      "name": "Lina Haddad",
+      "role": "UX Researcher · Previously at Meta",
+      "topic": "Personal experience",
+      "company": "Meta",
+      "text": "Eight weeks since my layoff. The first month was a blur, the second was about rebuilding routine. This week I finally updated my portfolio and it felt like a small win worth sharing.",
+      "open": true
+    },
+    {
+      "name": "Rohan Mehta",
+      "role": "Frontend Engineer at Zoho",
+      "topic": "Hiring",
+      "company": "Zoho",
+      "text": "Zoho is hiring frontend engineers in Chennai and remote across India. React, TypeScript and a good eye for detail. Reply here or send a message and I will point you to the right person.",
+      "open": false
+    },
+    {
+      "name": "Hannah Lee",
+      "role": "Recruiter at Atlassian",
+      "topic": "Career advice",
+      "company": "Atlassian",
+      "text": "From the recruiting side: a clear one-line headline and recent, specific impact beats a long list of tools. If you are job hunting, lead with what you shipped and who it helped.",
+      "open": false
+    },
+    {
+      "name": "Carlos Mendes",
+      "role": "Product Manager · Previously at Salesforce",
+      "topic": "Layoff updates",
+      "company": "Salesforce",
+      "text": "Sharing a simple spreadsheet I built to track applications, referrals and follow-ups. It kept me sane through the search. Reach out and I will send it over.",
+      "open": false
+    },
+    {
+      "name": "Nisha Kapoor",
+      "role": "QA Lead at Infosys",
+      "topic": "General discussion",
+      "company": "Infosys",
+      "text": "Question for the group: what is one small habit that kept you steady during a hard stretch? Mine was a daily walk with no phone.",
+      "open": false
+    },
+    {
+      "name": "Ben Carter",
+      "role": "Cloud Engineer · Open to work",
+      "topic": "Personal experience",
+      "company": "Microsoft",
+      "text": "After a long search I accepted an offer this week. Thank you to everyone here who reviewed my resume and practiced interviews with me. Pay it forward when you can.",
+      "open": true
+    },
+    {
+      "name": "Ananya Rao",
+      "role": "Senior Designer at Adobe",
+      "topic": "Offering referrals",
+      "company": "Adobe",
+      "text": "Adobe has openings for product designers and design technologists. I am glad to refer people who care about craft. Share your portfolio link and a line on why you are interested.",
+      "open": false
+    },
+    {
+      "name": "Victor Almeida",
+      "role": "DevOps Engineer · Previously at Amazon",
+      "topic": "Career advice",
+      "company": "Amazon",
+      "text": "Negotiation reminder: ask about level, scope and review cycle before talking salary. Those three shape your next two years more than the first number does.",
+      "open": false
+    },
+    {
+      "name": "Sofia Marin",
+      "role": "Marketing Lead at Shopify",
+      "topic": "General discussion",
+      "company": "Shopify",
+      "text": "Reminder that a gap on your resume is a gap in the calendar, not in your skills. Write one honest line about it and move on.",
+      "open": false
     }
   ],
   "referrals": [
@@ -124,6 +220,60 @@
       "location": "Remote · Worldwide",
       "skills": "B2B SaaS, Strategy · 5+ years",
       "person": "Aisha Patel",
+      "color": "orange"
+    },
+    {
+      "company": "Swiggy",
+      "letter": "S",
+      "title": "Data Analyst",
+      "location": "Bengaluru, India · Hybrid",
+      "skills": "SQL, Python · 2+ years",
+      "person": "Meera Iyer",
+      "color": "orange"
+    },
+    {
+      "company": "Zoho",
+      "letter": "Z",
+      "title": "Frontend Engineer",
+      "location": "Chennai, India · Onsite",
+      "skills": "React, TypeScript · 3+ years",
+      "person": "Rohan Mehta",
+      "color": "blue"
+    },
+    {
+      "company": "Adobe",
+      "letter": "A",
+      "title": "Product Designer",
+      "location": "Remote · India",
+      "skills": "Figma, Prototyping · 4+ years",
+      "person": "Ananya Rao",
+      "color": "purple"
+    },
+    {
+      "company": "Atlassian",
+      "letter": "A",
+      "title": "Technical Recruiter",
+      "location": "Sydney, Australia · Hybrid",
+      "skills": "Sourcing, Interviewing · 3+ years",
+      "person": "Hannah Lee",
+      "color": "green"
+    },
+    {
+      "company": "Spotify",
+      "letter": "S",
+      "title": "Engineering Manager",
+      "location": "Stockholm, Sweden · Hybrid",
+      "skills": "Leadership, Mentoring · 6+ years",
+      "person": "Tom Becker",
+      "color": "green"
+    },
+    {
+      "company": "Shopify",
+      "letter": "S",
+      "title": "Growth Marketer",
+      "location": "Remote · Canada",
+      "skills": "Lifecycle, Analytics · 3+ years",
+      "person": "Sofia Marin",
       "color": "orange"
     }
   ]

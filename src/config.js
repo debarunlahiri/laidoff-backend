@@ -37,6 +37,7 @@ const env = z
     DB_CONNECTION_LIMIT: z.coerce.number().int().min(1).max(100).default(10),
     SESSION_DAYS: z.coerce.number().int().min(1).max(30).default(7),
     UPLOAD_DIR: z.string().default("./uploads"),
+    PRIVATE_UPLOAD_DIR: z.string().default("./private-uploads"),
     TRUST_PROXY: z.enum(["true", "false"]).default("false"),
   })
   .parse(process.env);
@@ -47,4 +48,5 @@ export const config = {
     .filter(Boolean),
   logOutboxDir: path.resolve(env.LOG_OUTBOX_DIR),
   uploadDir: path.resolve(env.UPLOAD_DIR),
+  privateUploadDir: path.resolve(env.PRIVATE_UPLOAD_DIR),
 };

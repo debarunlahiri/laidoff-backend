@@ -9,7 +9,8 @@ test("health works without a database", async () => {
   assert.ok(response.headers["x-content-type-options"]);
 });
 test("protected resources reject missing and malformed credentials", async () => {
-  await request(app).get("/api/v1/posts").expect(401);
+  await request(app).get("/api/v1/conversations").expect(401);
+  await request(app).post("/api/v1/posts").send({}).expect(401);
   await request(app)
     .get("/api/v1/conversations")
     .set("Authorization", "Bearer invalid")

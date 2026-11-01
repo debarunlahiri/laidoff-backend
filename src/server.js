@@ -1,7 +1,9 @@
 import { serverQueries } from "./queries/server.queries.js";
 import { createApp } from "./app.js";
+import { attachRealtime } from "./realtime.js";
 import { config } from "./config.js";
 import { pool, query } from "./db.js";
+import { pendingMigrations } from "./pending-migrations.js";
 import {
   applicationLog,
   closeLogger,
@@ -55,6 +57,15 @@ try {
   await query(serverQueries.checkDatabase);
   // Refuse to accept traffic before the schema and log tables are migrated.
   await query(serverQueries.checkLoggingSchema);
+  const pending = await pendingMigrations();
+  if (pending.length) {
+    console.error(
+      `Database is not up to date. Run "npm run db:migrate" first. Pending: ${pending.join(", ")}`,
+    );
+    throw Object.assign(new Error("Pending database migrations"), {
+      code: "PENDING_MIGRATIONS",
+    });
+  }
   server = createApp().listen(config.PORT, config.HOST, () => {
     console.info(
       `LayoffCircle API listening on http://${config.HOST}:${config.PORT}`,
@@ -65,6 +76,7 @@ try {
       environment: config.NODE_ENV,
     });
   });
+  attachRealtime(server);
   server.on("error", (error) => {
     void applicationLog(
       "fatal",

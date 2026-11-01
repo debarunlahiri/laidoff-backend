@@ -75,7 +75,13 @@ try {
           c,
         );
     }
+    const parseSkills = (value) => {
+      const [skills, rest = ""] = value.split(" · ");
+      const years = /(\d+)\+?\s*years/i.exec(rest || value)?.[1];
+      return { skills: skills.trim(), years: years ? Number(years) : null };
+    };
     for (const referral of fixtures.referrals) {
+      const parsed = parseSkills(referral.skills);
       const existing = await query(
         seedQueries.findSeedReferral,
         [users.get(referral.person), referral.title],
@@ -90,7 +96,22 @@ try {
             companies.get(referral.company),
             referral.title,
             referral.location,
-            referral.skills,
+            /remote/i.test(referral.location)
+              ? "remote"
+              : /hybrid/i.test(referral.location)
+                ? "hybrid"
+                : "onsite",
+            parsed.years === null
+              ? null
+              : parsed.years >= 8
+                ? "lead"
+                : parsed.years >= 5
+                  ? "senior"
+                  : parsed.years >= 2
+                    ? "mid"
+                    : "entry",
+            parsed.years,
+            parsed.skills,
             "Fictional development opportunity.",
           ],
           c,

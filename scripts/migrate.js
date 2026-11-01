@@ -42,6 +42,8 @@ try {
     console.log(`Applied ${name}`);
   }
 } catch (error) {
+  // Show the failure in the terminal too; it is otherwise only written to the log tables.
+  console.error(`Migration failed: ${error.message}`);
   await applicationLog(
     "fatal",
     "migration.failed",

@@ -55,6 +55,82 @@ people.get("/users/:id", async (req, res) => {
   if (!rows.length) throw new HttpError(404, "User not found");
   res.json(rows[0]);
 });
+people.get("/users/:id/stats", async (req, res) => {
+  const id = uuid(req.params.id);
+  const rows = await query(peopleQueries.findPublicProfile, [id]);
+  if (!rows.length) throw new HttpError(404, "User not found");
+  const [stats] = await query(
+    peopleQueries.userActivityStats,
+    Array(10).fill(id),
+  );
+  res.json(
+    Object.fromEntries(
+      Object.entries(stats).map(([key, value]) => [key, Number(value)]),
+    ),
+  );
+});
+people.get("/users/:id/followers", async (req, res) => {
+  const id = uuid(req.params.id);
+  const { limit, offset } = page(req);
+  await mustExist(query, "users", id);
+  res.json(await query(peopleQueries.listFollowers({ limit, offset }), [id]));
+});
+people.get("/users/:id/connections", async (req, res) => {
+  const id = uuid(req.params.id);
+  const { limit, offset } = page(req);
+  await mustExist(query, "users", id);
+  res.json(
+    await query(peopleQueries.listAcceptedConnections({ limit, offset }), [
+      id,
+      id,
+      id,
+    ]),
+  );
+});
+// Only the member can see who reacted to their posts.
+people.get("/users/:id/reactions", async (req, res) => {
+  const id = uuid(req.params.id);
+  if (id !== req.user.id)
+    throw new HttpError(403, "Only you can see who reacted to your posts");
+  const { type } = z
+    .object({ type: z.enum(["like", "dislike"]) })
+    .parse(req.query);
+  const { limit, offset } = page(req);
+  res.json(
+    await query(peopleQueries.listReactionsReceived({ limit, offset }), [
+      id,
+      type,
+    ]),
+  );
+});
+// Avatar and cover come from the caller's own uploads (or null to remove).
+const imageKinds = {
+  profile: peopleQueries.setProfileImage,
+  cover: peopleQueries.setCoverImage,
+};
+people.put("/me/images/:kind", async (req, res) => {
+  const sql = Object.hasOwn(imageKinds, req.params.kind)
+    ? imageKinds[req.params.kind]
+    : null;
+  if (!sql) throw new HttpError(404, "Unknown image type");
+  const { uploadId } = z.object({ uploadId: z.uuid() }).parse(req.body);
+  const [upload] = await query(peopleQueries.findOwnedUploadFile, [
+    uploadId,
+    req.user.id,
+  ]);
+  if (!upload) throw new HttpError(400, "Invalid upload");
+  const url = `/uploads/${upload.file}`;
+  await query(sql, [url, req.user.id]);
+  res.json({ url });
+});
+people.delete("/me/images/:kind", async (req, res) => {
+  const sql = Object.hasOwn(imageKinds, req.params.kind)
+    ? imageKinds[req.params.kind]
+    : null;
+  if (!sql) throw new HttpError(404, "Unknown image type");
+  await query(sql, [null, req.user.id]);
+  res.status(204).end();
+});
 people.patch("/me", async (req, res) => {
   const body = z
     .object({

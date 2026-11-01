@@ -46,6 +46,20 @@ export async function verifyGoogleIdentity(idToken) {
   return googleIdentityFromClaims(decoded);
 }
 
+// Only keep https images served from Google's own image hosts.
+export function safePictureUrl(value) {
+  if (typeof value !== "string" || value.length > 2048) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" &&
+      /(^|\.)googleusercontent\.com$/.test(url.hostname)
+      ? url.href
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function googleIdentityFromClaims(decoded) {
   const subject = decoded.firebase?.identities?.["google.com"]?.[0];
   if (
@@ -63,6 +77,7 @@ export function googleIdentityFromClaims(decoded) {
   if (email.length > 254 || subject.length > 255 || decoded.uid.length > 128)
     throw new HttpError(401, "Invalid Google account identity");
   return {
+    pictureUrl: safePictureUrl(decoded.picture),
     firebaseUserId: decoded.uid,
     providerSubject: subject,
     email,

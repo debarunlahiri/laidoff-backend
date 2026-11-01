@@ -20,6 +20,9 @@ async function insertIdentity(identity, userId, connection) {
   );
   return id;
 }
+// Uploaded photos are stored as /uploads/<file>; provider photos are absolute URLs.
+const hasCustomPhoto = (url) =>
+  typeof url === "string" && url.startsWith("/uploads/");
 export async function signInWithGoogleIdentity(identity, req) {
   return transaction(async (connection) => {
     const [existing] = await query(
@@ -37,8 +40,22 @@ export async function signInWithGoogleIdentity(identity, req) {
         id: existing.userId,
         name: existing.name,
         email: existing.email,
+        profileImageUrl: hasCustomPhoto(existing.profileImageUrl)
+          ? existing.profileImageUrl
+          : (identity.pictureUrl ?? existing.profileImageUrl),
       };
       identityId = existing.identityId;
+      // Keep a photo the member uploaded; only refresh a Google-provided one.
+      if (
+        identity.pictureUrl &&
+        !hasCustomPhoto(existing.profileImageUrl) &&
+        identity.pictureUrl !== existing.profileImageUrl
+      )
+        await query(
+          sql.updateProfileImage,
+          [identity.pictureUrl, user.id],
+          connection,
+        );
       await query(
         sql.recordIdentityLogin,
         [identity.email, identityId],
@@ -55,10 +72,15 @@ export async function signInWithGoogleIdentity(identity, req) {
           409,
           "This email already has an account. Sign in with your password, then link Google from your account menu.",
         );
-      user = { id: randomUUID(), email: identity.email, name: identity.name };
+      user = {
+        id: randomUUID(),
+        email: identity.email,
+        name: identity.name,
+        profileImageUrl: identity.pictureUrl,
+      };
       await query(
         sql.createGoogleUser,
-        [user.id, user.email, user.name],
+        [user.id, user.email, user.name, user.profileImageUrl],
         connection,
       );
       identityId = await insertIdentity(identity, user.id, connection);
@@ -97,6 +119,12 @@ export async function linkGoogleIdentity(identity, userId) {
       throw new HttpError(409, "This Google account is already linked");
     if (!existing) await insertIdentity(identity, userId, connection);
     await query(sql.verifyEmail, [userId], connection);
+    if (identity.pictureUrl)
+      await query(
+        sql.updateProfileImage,
+        [identity.pictureUrl, userId],
+        connection,
+      );
     return { linked: true, provider: "google.com" };
   });
 }

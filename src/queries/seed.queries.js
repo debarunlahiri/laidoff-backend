@@ -9,5 +9,5 @@ export const seedQueries = {
     "INSERT INTO posts(id,user_id,post_content,post_topic,company_id) VALUES(?,?,?,?,?)",
   findSeedReferral: "SELECT id FROM referrals WHERE user_id=? AND job_title=?",
   createReferral:
-    "INSERT INTO referrals(id,user_id,company_id,job_title,job_location,required_skills,job_description) VALUES(?,?,?,?,?,?,?)",
+    "INSERT INTO referrals(id,user_id,company_id,job_title,job_location,work_mode,experience_level,min_experience_years,required_skills,job_description) VALUES(?,?,?,?,?,?,?,?,?,?)",
 };

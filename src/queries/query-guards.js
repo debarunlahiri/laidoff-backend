@@ -22,3 +22,7 @@ export function assertColumns(columns) {
   )
     throw new TypeError("Invalid query columns");
 }
+// Escapes LIKE wildcards so a search term is matched literally.
+export function escapeLike(term) {
+  return String(term).replace(/[\\%_]/g, "\\$&");
+}

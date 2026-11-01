@@ -21,13 +21,18 @@ uploads.post("/", upload.single("photo"), async (req, res) => {
   const target = path.join(config.uploadDir, filename);
   let storedImage;
   try {
-    const image = sharp(req.file.buffer, { limitInputPixels: 25000000 });
+    // GIFs keep their animation (stored as animated WebP); the pixel limit is
+    // higher because every frame counts toward it.
+    const isGif = req.file.buffer.subarray(0, 3).toString("latin1") === "GIF";
+    const image = sharp(req.file.buffer, {
+      limitInputPixels: isGif ? 100000000 : 25000000,
+      animated: isGif,
+    });
     const metadata = await image.metadata();
     if (!["jpeg", "png", "webp", "gif"].includes(metadata.format)) {
       throw new Error("Unsupported image format");
     }
-    storedImage = await image
-      .rotate()
+    storedImage = await (isGif ? image : image.rotate())
       .resize({
         width: 2048,
         height: 2048,
