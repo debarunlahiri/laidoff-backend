@@ -1,8 +1,9 @@
 export const seedQueries = {
-  createCompany: "INSERT IGNORE INTO companies(id,company_name) VALUES(?,?)",
+  createCompany:
+    "INSERT INTO companies(id,company_name) VALUES(?,?) ON CONFLICT DO NOTHING",
   listCompanies: "SELECT id,company_name AS name FROM companies",
   createUser:
-    "INSERT IGNORE INTO users(id,email,password_hash,full_name,professional_headline,professional_skills,open_to_work) VALUES(?,?,?,?,?,?,?)",
+    "INSERT INTO users(id,email,password_hash,full_name,professional_headline,professional_skills,open_to_work) VALUES(?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
   findUserByEmail: "SELECT id FROM users WHERE email=?",
   findSeedPost: "SELECT id FROM posts WHERE user_id=? AND post_content=?",
   createPost:

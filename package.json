@@ -16,7 +16,8 @@
     "test:integration": "node --env-file-if-exists=.env --test test/integration/*.test.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "db:check": "node --env-file-if-exists=.env scripts/check-schema.js"
+    "db:check": "node --env-file-if-exists=.env scripts/check-schema.js",
+    "db:copy-from-mysql": "node --env-file-if-exists=.env scripts/copy-mysql-to-postgres.js"
   },
   "dependencies": {
     "cors": "^2.8.6",
@@ -25,12 +26,13 @@
     "firebase-admin": "^14.5.0",
     "helmet": "^8.3.0",
     "multer": "^2.5.0",
-    "mysql2": "^3.24.6",
+    "pg": "^8.23.1",
     "sharp": "^0.35.5",
     "ws": "^8.22.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "mysql2": "^3.24.6",
     "nodemon": "^3.1.14",
     "prettier": "^3.9.10",
     "supertest": "^7.3.1"

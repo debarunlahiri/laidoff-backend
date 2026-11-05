@@ -10,6 +10,6 @@ export const postImageQueries = {
   listImages: ({ count }) => {
     if (!Number.isInteger(count) || count < 1 || count > 100)
       throw new TypeError("Invalid post count");
-    return `SELECT pi.post_id AS postId,u.stored_file_name AS file FROM post_images pi JOIN uploads u ON u.id=pi.upload_id WHERE pi.post_id IN (${Array(count).fill("?").join(",")}) ORDER BY pi.post_id,pi.display_position`;
+    return `SELECT pi.post_id AS "postId",u.stored_file_name AS file FROM post_images pi JOIN uploads u ON u.id=pi.upload_id WHERE pi.post_id IN (${Array(count).fill("?").join(",")}) ORDER BY pi.post_id,pi.display_position`;
   },
 };

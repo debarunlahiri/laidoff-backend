@@ -1,6 +1,6 @@
 # Database logging
 
-Logging is enabled by default. Run all migrations before starting the API. Normal logs are persisted to MySQL; a local durable outbox retries records when the database or logging tables are unavailable. No public log-reading API is exposed.
+Logging is enabled by default. Run all migrations before starting the API. Normal logs are persisted to PostgreSQL; a local durable outbox retries records when the database or logging tables are unavailable. No public log-reading API is exposed.
 
 ## Tables and captured details
 
@@ -43,7 +43,7 @@ By default each string is capped at 16,000 characters and each structured payloa
 
 Each event is written as a restricted-permission JSON file in `LOG_OUTBOX_DIR` (default `.log-outbox`) before delivery. A separate database pool writes log rows, avoiding business-transaction lock contention and recursive query logging. Successful inserts remove the outbox file. Retry runs every five seconds and when new records arrive. Stable log UUIDs make replay duplicate-safe if the process stops between insertion and file removal.
 
-When MySQL is unavailable, events remain in the outbox. They cannot appear in MySQL until connectivity/schema access is restored. Keep the outbox on persistent, writable storage and monitor available disk space. Disk failures are reported to stderr. A hard process/machine failure before an asynchronous write finishes can still lose the newest in-flight event; graceful SIGINT/SIGTERM shutdown waits for pending log writes and attempts delivery before closing pools.
+When PostgreSQL is unavailable, events remain in the outbox. They cannot appear in PostgreSQL until connectivity/schema access is restored. Keep the outbox on persistent, writable storage and monitor available disk space. Disk failures are reported to stderr. A hard process/machine failure before an asynchronous write finishes can still lose the newest in-flight event; graceful SIGINT/SIGTERM shutdown waits for pending log writes and attempts delivery before closing pools.
 
 Keep one outbox directory per process/instance. Do not manually edit queued files. If permissions, schema changes, or a malformed queued record block replay, fix the cause and restart; do not delete undelivered records without archiving them. The outbox is ignored by Git and should be excluded from public static hosting.
 

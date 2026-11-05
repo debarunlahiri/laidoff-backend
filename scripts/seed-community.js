@@ -66,10 +66,10 @@ try {
 
     // Companies
     for (const name of fixtures.companies)
-      await run("INSERT IGNORE INTO companies(id,company_name) VALUES(?,?)", [
-        id(`company:${name}`),
-        name,
-      ]);
+      await run(
+        "INSERT INTO companies(id,company_name) VALUES(?,?) ON CONFLICT DO NOTHING",
+        [id(`company:${name}`), name],
+      );
     const companyId = new Map(
       (await run("SELECT id,company_name AS name FROM companies")).map((r) => [
         r.name,
@@ -93,7 +93,7 @@ try {
       let [row] = await run("SELECT id FROM users WHERE email=?", [email]);
       if (!row) {
         await run(
-          "INSERT INTO users(id,email,password_hash,full_name,professional_headline,professional_skills,open_to_work,email_verified_at) VALUES(?,?,?,?,?,?,?,UTC_TIMESTAMP(3))",
+          "INSERT INTO users(id,email,password_hash,full_name,professional_headline,professional_skills,open_to_work,email_verified_at) VALUES(?,?,?,?,?,?,?,utc_now())",
           [
             id(`user:${email}`),
             email,
@@ -108,7 +108,7 @@ try {
         [row] = await run("SELECT id FROM users WHERE email=?", [email]);
       }
       await run(
-        "UPDATE users SET professional_headline=?,profile_location=?,professional_skills=?,open_to_work=?,biography=?,career_objective=?,email_verified_at=COALESCE(email_verified_at,UTC_TIMESTAMP(3)) WHERE id=?",
+        "UPDATE users SET professional_headline=?,profile_location=?,professional_skills=?,open_to_work=?,biography=?,career_objective=?,email_verified_at=COALESCE(email_verified_at,utc_now()) WHERE id=?",
         [headline, location, JSON.stringify(skills), open, about, next, row.id],
       );
       user.set(name, { id: row.id, company });
@@ -128,7 +128,7 @@ try {
         6 + Math.floor(rand() * 4),
       )) {
         await run(
-          "INSERT IGNORE INTO follows(follower_id,followed_id,created_at) VALUES(?,?,?)",
+          "INSERT INTO follows(follower_id,followed_id,created_at) VALUES(?,?,?) ON CONFLICT DO NOTHING",
           [uid(name), uid(other), ago(rand() * 40000)],
         );
         count("follows");
@@ -145,7 +145,7 @@ try {
         pairs.add(key);
         const accepted = rand() > 0.2;
         await run(
-          "INSERT IGNORE INTO connections(id,requester_id,recipient_id,participant_pair_key,connection_status,created_at,accepted_at) VALUES(?,?,?,?,?,?,?)",
+          "INSERT INTO connections(id,requester_id,recipient_id,participant_pair_key,connection_status,created_at,accepted_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
           [
             id(`conn:${key}`),
             uid(name),
@@ -162,7 +162,7 @@ try {
     for (const person of real) {
       for (const other of sample(names, 8)) {
         await run(
-          "INSERT IGNORE INTO follows(follower_id,followed_id,created_at) VALUES(?,?,?)",
+          "INSERT INTO follows(follower_id,followed_id,created_at) VALUES(?,?,?) ON CONFLICT DO NOTHING",
           [uid(other), person.id, ago(rand() * 30000)],
         );
         count("follows");
@@ -170,7 +170,7 @@ try {
       for (const [i, other] of sample(names, 6).entries()) {
         const key = pair(person.id, uid(other));
         await run(
-          "INSERT IGNORE INTO connections(id,requester_id,recipient_id,participant_pair_key,connection_status,created_at,accepted_at) VALUES(?,?,?,?,?,?,?)",
+          "INSERT INTO connections(id,requester_id,recipient_id,participant_pair_key,connection_status,created_at,accepted_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
           [
             id(`conn:${key}`),
             uid(other),
@@ -198,7 +198,7 @@ try {
         author === "Anonymous" ? names[(i * 7) % names.length] : author;
       const created = ago(30 + i * 420 + rand() * 300);
       await run(
-        "INSERT IGNORE INTO posts(id,user_id,post_content,post_topic,company_id,is_anonymous,created_at) VALUES(?,?,?,?,?,?,?)",
+        "INSERT INTO posts(id,user_id,post_content,post_topic,company_id,is_anonymous,created_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
         [
           pid,
           uid(owner),
@@ -219,7 +219,7 @@ try {
         const roll = rand();
         if (roll < popularity) {
           await run(
-            "INSERT IGNORE INTO reactions(post_id,user_id,reaction_type,created_at) VALUES(?,?,?,?)",
+            "INSERT INTO reactions(post_id,user_id,reaction_type,created_at) VALUES(?,?,?,?) ON CONFLICT DO NOTHING",
             [
               post.pid,
               uid(name),
@@ -231,14 +231,14 @@ try {
         }
         if (rand() < 0.07) {
           await run(
-            "INSERT IGNORE INTO bookmarks(post_id,user_id,created_at) VALUES(?,?,?)",
+            "INSERT INTO bookmarks(post_id,user_id,created_at) VALUES(?,?,?) ON CONFLICT DO NOTHING",
             [post.pid, uid(name), ago(rand() * 20000)],
           );
           count("bookmarks");
         }
         if (rand() < 0.05) {
           await run(
-            "INSERT IGNORE INTO reposts(post_id,user_id,created_at) VALUES(?,?,?)",
+            "INSERT INTO reposts(post_id,user_id,created_at) VALUES(?,?,?) ON CONFLICT DO NOTHING",
             [post.pid, uid(name), ago(rand() * 20000)],
           );
           count("reposts");
@@ -249,7 +249,7 @@ try {
       for (const [j, name] of commenters.entries()) {
         const cid = id(`comment:${i}:${j}`);
         await run(
-          "INSERT IGNORE INTO comments(id,post_id,parent_comment_id,user_id,comment_content,created_at) VALUES(?,?,NULL,?,?,?)",
+          "INSERT INTO comments(id,post_id,parent_comment_id,user_id,comment_content,created_at) VALUES(?,?,NULL,?,?,?) ON CONFLICT DO NOTHING",
           [
             cid,
             post.pid,
@@ -264,7 +264,7 @@ try {
           Math.floor(rand() * 6),
         )) {
           await run(
-            "INSERT IGNORE INTO comment_reactions(comment_id,user_id,reaction_type,created_at) VALUES(?,?,?,?)",
+            "INSERT INTO comment_reactions(comment_id,user_id,reaction_type,created_at) VALUES(?,?,?,?) ON CONFLICT DO NOTHING",
             [
               cid,
               uid(voter),
@@ -280,7 +280,7 @@ try {
             ...others.filter((n) => n !== name),
           ]);
           await run(
-            "INSERT IGNORE INTO comments(id,post_id,parent_comment_id,user_id,comment_content,created_at) VALUES(?,?,?,?,?,?)",
+            "INSERT INTO comments(id,post_id,parent_comment_id,user_id,comment_content,created_at) VALUES(?,?,?,?,?,?) ON CONFLICT DO NOTHING",
             [
               id(`reply:${i}:${j}`),
               post.pid,
@@ -303,14 +303,14 @@ try {
       for (const post of own) {
         for (const name of sample(names, 5)) {
           await run(
-            "INSERT IGNORE INTO reactions(post_id,user_id,reaction_type,created_at) VALUES(?,?,'like',?)",
+            "INSERT INTO reactions(post_id,user_id,reaction_type,created_at) VALUES(?,?,'like',?) ON CONFLICT DO NOTHING",
             [post.id, uid(name), ago(rand() * 3000)],
           );
           count("reactions");
         }
         for (const [j, name] of sample(names, 2).entries()) {
           await run(
-            "INSERT IGNORE INTO comments(id,post_id,parent_comment_id,user_id,comment_content,created_at) VALUES(?,?,NULL,?,?,?)",
+            "INSERT INTO comments(id,post_id,parent_comment_id,user_id,comment_content,created_at) VALUES(?,?,NULL,?,?,?) ON CONFLICT DO NOTHING",
             [
               id(`realcomment:${person.id}:${post.id}:${j}`),
               post.id,
@@ -333,7 +333,7 @@ try {
       for (const [k, [type, text]] of events.entries()) {
         const actor = names[(k * 5) % names.length];
         await run(
-          "INSERT IGNORE INTO notifications(id,user_id,actor_id,notification_type,resource_id,notification_message,read_at,created_at) VALUES(?,?,?,?,NULL,?,?,?)",
+          "INSERT INTO notifications(id,user_id,actor_id,notification_type,resource_id,notification_message,read_at,created_at) VALUES(?,?,?,?,NULL,?,?,?) ON CONFLICT DO NOTHING",
           [
             id(`notif:${person.id}:${k}`),
             person.id,
@@ -351,7 +351,7 @@ try {
         const key = pair(person.id, uid(other));
         const conv = id(`conv:${key}`);
         await run(
-          "INSERT IGNORE INTO conversations(id,first_participant_user_id,second_participant_user_id,participant_pair_key) VALUES(?,?,?,?)",
+          "INSERT INTO conversations(id,first_participant_user_id,second_participant_user_id,participant_pair_key) VALUES(?,?,?,?) ON CONFLICT DO NOTHING",
           [conv, ...[person.id, uid(other)].sort(), key],
         );
         const lines = [
@@ -363,7 +363,7 @@ try {
         ];
         for (const [m, [who, text]] of lines.entries()) {
           await run(
-            "INSERT IGNORE INTO messages(id,conversation_id,sender_id,message_content,created_at) VALUES(?,?,?,?,?)",
+            "INSERT INTO messages(id,conversation_id,sender_id,message_content,created_at) VALUES(?,?,?,?,?) ON CONFLICT DO NOTHING",
             [
               id(`realmsg:${conv}:${m}`),
               conv,
@@ -385,7 +385,7 @@ try {
       const post = postIds.find((p, idx) => posts[idx][3].includes(fragment));
       if (!post) continue;
       await run(
-        "INSERT IGNORE INTO community_notes(id,post_id,user_id,note_content,source_url,review_status,reviewed_at,created_at) VALUES(?,?,?,?,?,?,?,?)",
+        "INSERT INTO community_notes(id,post_id,user_id,note_content,source_url,review_status,reviewed_at,created_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
         [
           id(`note:${i}`),
           post.pid,
@@ -425,7 +425,7 @@ try {
       const target = postIds[idx];
       if (!target || uid(reporter) === uid(target.owner)) continue;
       await run(
-        "INSERT IGNORE INTO reports(id,post_id,user_id,report_category,report_reason,report_status,created_at) VALUES(?,?,?,?,?,?,?)",
+        "INSERT INTO reports(id,post_id,user_id,report_category,report_reason,report_status,created_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
         [
           id(`report:${i}`),
           target.pid,
@@ -466,7 +466,7 @@ try {
     ] of referrals.entries()) {
       const rid = id(`referral:${i}`);
       await run(
-        "INSERT IGNORE INTO referrals(id,user_id,company_id,job_title,job_location,required_skills,job_description,referral_status,closed_at,created_at,work_mode,experience_level,min_experience_years) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO referrals(id,user_id,company_id,job_title,job_location,required_skills,job_description,referral_status,closed_at,created_at,work_mode,experience_level,min_experience_years) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
         [
           rid,
           uid(author),
@@ -497,7 +497,7 @@ try {
             ? "accepted"
             : pick(["pending", "pending", "accepted", "declined"]);
         await run(
-          "INSERT IGNORE INTO referral_requests(referral_id,user_id,request_status,decision_at,decision_by_user_id,created_at) VALUES(?,?,?,?,?,?)",
+          "INSERT INTO referral_requests(referral_id,user_id,request_status,decision_at,decision_by_user_id,created_at) VALUES(?,?,?,?,?,?) ON CONFLICT DO NOTHING",
           [
             rid,
             uid(name),
@@ -516,7 +516,7 @@ try {
               : rand() < 0.15;
           if (rand() < 0.85) {
             await run(
-              "INSERT IGNORE INTO referral_feedback(referral_id,user_id,feedback_type) VALUES(?,?,?)",
+              "INSERT INTO referral_feedback(referral_id,user_id,feedback_type) VALUES(?,?,?) ON CONFLICT DO NOTHING",
               [rid, uid(name), helpful ? "helpful" : "not_helpful"],
             );
             count("referral_feedback");
@@ -526,7 +526,7 @@ try {
       for (const person of real.slice(0, 1)) {
         if (i % 3 === 0)
           await run(
-            "INSERT IGNORE INTO referral_requests(referral_id,user_id,request_status,created_at) VALUES(?,?,'pending',?)",
+            "INSERT INTO referral_requests(referral_id,user_id,request_status,created_at) VALUES(?,?,'pending',?) ON CONFLICT DO NOTHING",
             [rid, person.id, ago(800)],
           );
       }
@@ -537,12 +537,12 @@ try {
       const key = pair(uid(a), uid(b));
       const conv = id(`conv:${key}`);
       await run(
-        "INSERT IGNORE INTO conversations(id,first_participant_user_id,second_participant_user_id,participant_pair_key) VALUES(?,?,?,?)",
+        "INSERT INTO conversations(id,first_participant_user_id,second_participant_user_id,participant_pair_key) VALUES(?,?,?,?) ON CONFLICT DO NOTHING",
         [conv, ...[uid(a), uid(b)].sort(), key],
       );
       for (const [m, [who, text]] of lines.entries()) {
         await run(
-          "INSERT IGNORE INTO messages(id,conversation_id,sender_id,message_content,read_at,created_at) VALUES(?,?,?,?,?,?)",
+          "INSERT INTO messages(id,conversation_id,sender_id,message_content,read_at,created_at) VALUES(?,?,?,?,?,?) ON CONFLICT DO NOTHING",
           [
             id(`msg:${i}:${m}`),
             conv,
@@ -574,7 +574,7 @@ try {
       );
       const verified = i % 3 === 0;
       await run(
-        "INSERT IGNORE INTO workforce_reports(id,company_id,user_id,event_date,reported_roles_affected,reported_headcount,reported_hires,source_url,verification_status,verified_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO workforce_reports(id,company_id,user_id,event_date,reported_roles_affected,reported_headcount,reported_hires,source_url,verification_status,verified_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
         [
           id(`workforce:${i}`),
           companyId.get(company),
@@ -595,7 +595,7 @@ try {
     // More daily reminders
     for (const [i, [quote, text]] of reminders.entries()) {
       await run(
-        "INSERT IGNORE INTO daily_reminders(id,reminder_quote,reminder_supporting_text,display_order) VALUES(?,?,?,?)",
+        "INSERT INTO daily_reminders(id,reminder_quote,reminder_supporting_text,display_order) VALUES(?,?,?,?) ON CONFLICT DO NOTHING",
         [id(`reminder:${i}`), quote, text, 8 + i],
       );
       count("daily_reminders");

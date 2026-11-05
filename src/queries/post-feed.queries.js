@@ -29,7 +29,7 @@ export function buildPostFeedQuery({ filters, userId, limit, offset }) {
   }
   if (filters.search) {
     conditions.push(
-      "(p.post_content LIKE ? OR c.company_name LIKE ? OR (p.is_anonymous=FALSE AND u.full_name LIKE ?))",
+      "(p.post_content ILIKE ? OR c.company_name ILIKE ? OR (p.is_anonymous=FALSE AND u.full_name ILIKE ?))",
     );
     params.push(...Array(3).fill("%" + filters.search + "%"));
   }
@@ -49,10 +49,10 @@ export function buildPostFeedQuery({ filters, userId, limit, offset }) {
   }
 
   return {
-    sql: `SELECT p.id,p.post_content AS text,p.post_topic AS topic,p.company_id AS companyId,COALESCE(c.company_name,'') AS company,p.is_anonymous AS anonymous,p.created_at AS createdAt,IF(p.is_anonymous,NULL,u.id) AS authorId,IF(p.is_anonymous,'Anonymous member',u.full_name) AS name,IF(p.is_anonymous,'Community member',u.professional_headline) AS role,IF(p.is_anonymous,FALSE,u.open_to_work) AS openToWork,IF(p.is_anonymous,NULL,u.profile_image_url) AS profileImageUrl,IF(p.user_id=?,TRUE,FALSE) AS own,up.stored_file_name AS image,
+    sql: `SELECT p.id,p.post_content AS text,p.post_topic AS topic,p.company_id AS "companyId",COALESCE(c.company_name,'') AS company,p.is_anonymous AS anonymous,p.created_at AS "createdAt",CASE WHEN p.is_anonymous THEN NULL ELSE u.id END AS "authorId",CASE WHEN p.is_anonymous THEN 'Anonymous member' ELSE u.full_name END AS name,CASE WHEN p.is_anonymous THEN 'Community member' ELSE u.professional_headline END AS role,CASE WHEN p.is_anonymous THEN FALSE ELSE u.open_to_work END AS "openToWork",CASE WHEN p.is_anonymous THEN NULL ELSE u.profile_image_url END AS "profileImageUrl",(p.user_id=?) AS own,up.stored_file_name AS image,
  (SELECT note_content FROM community_notes WHERE post_id=p.id AND review_status='approved' ORDER BY created_at DESC,id DESC LIMIT 1) AS note,
- (SELECT source_url FROM community_notes WHERE post_id=p.id AND review_status='approved' ORDER BY created_at DESC,id DESC LIMIT 1) AS noteSource,
- IF(p.is_anonymous,FALSE,EXISTS(SELECT 1 FROM follows WHERE follower_id=? AND followed_id=p.user_id)) AS following,
+ (SELECT source_url FROM community_notes WHERE post_id=p.id AND review_status='approved' ORDER BY created_at DESC,id DESC LIMIT 1) AS "noteSource",
+ CASE WHEN p.is_anonymous THEN FALSE ELSE EXISTS(SELECT 1 FROM follows WHERE follower_id=? AND followed_id=p.user_id) END AS following,
  (SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id AND r.reaction_type='like') AS likes,
  (SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id AND r.reaction_type='dislike') AS dislikes,
  (SELECT COUNT(*) FROM comments cm WHERE cm.post_id=p.id) AS comments,

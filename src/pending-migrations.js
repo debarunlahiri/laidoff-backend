@@ -13,7 +13,7 @@ export async function pendingMigrations() {
       (row) => row.name,
     );
   } catch (error) {
-    if (error.code !== "ER_NO_SUCH_TABLE") throw error;
+    if (error.code !== "42P01" /* undefined_table */) throw error;
   }
   return files.filter((name) => !applied.includes(name));
 }

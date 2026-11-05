@@ -285,7 +285,7 @@ test("authenticated social workflow and authorization boundaries", async () => {
       )
       .expect(400);
     await query(
-      "UPDATE sessions SET expires_at=DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 SECOND) WHERE token_hash=?",
+      "UPDATE sessions SET expires_at=utc_now() - INTERVAL '1 second' WHERE token_hash=?",
       [tokenHash(eve.token)],
     );
     await request(app).get("/api/v1/auth/me").set(e).expect(401);
@@ -359,12 +359,14 @@ test("database logs correlate requests, redact secrets, preserve audits, and rep
   assert.equal(audits[0].outcome, "succeeded");
   assert.ok(!JSON.stringify(audits).includes(account.password));
   const rejectedLogs = await query(
-    "SELECT id FROM database_query_logs WHERE was_successful=FALSE AND error_code='ER_DUP_ENTRY'",
+    "SELECT id FROM database_query_logs WHERE was_successful=FALSE AND error_code='23505'",
   );
   assert.ok(rejectedLogs.length);
   const marker = `test.outage.${randomUUID()}`;
   await flushLogs();
-  await query("RENAME TABLE application_logs TO application_logs_outage_test");
+  await query(
+    "ALTER TABLE application_logs RENAME TO application_logs_outage_test",
+  );
   try {
     await applicationLog("warn", marker, "Durable outbox test", { test: true });
     await flushLogs();
@@ -382,7 +384,7 @@ test("database logs correlate requests, redact secrets, preserve audits, and rep
     assert.ok(records.some((record) => record.row.event_name === marker));
   } finally {
     await query(
-      "RENAME TABLE application_logs_outage_test TO application_logs",
+      "ALTER TABLE application_logs_outage_test RENAME TO application_logs",
     );
   }
   await flushLogs();

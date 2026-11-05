@@ -1,31 +1,17 @@
-import { databaseQueries } from "./queries/database.queries.js";
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { correlation, recordLog, applicationLog } from "./logger.js";
 import { logContext } from "./log-context.js";
-import mysql from "mysql2/promise";
 import { config } from "./config.js";
-export const pool = mysql.createPool({
-  host: config.DB_HOST,
-  port: config.DB_PORT,
-  user: config.DB_USER,
-  password: config.DB_PASSWORD,
-  database: config.DB_NAME,
-  connectionLimit: config.DB_CONNECTION_LIMIT,
-  timezone: "Z",
-  dateStrings: true,
-  charset: "utf8mb4",
-});
-pool.on("connection", (connection) => {
-  connection.query(databaseQueries.setUtcTimezone);
-});
+import { createPool, run } from "./pg-support.js";
+export const pool = createPool();
 export async function query(sql, params = [], connection = pool) {
   const startedAt = new Date();
   const started = performance.now();
   let result;
   let failure;
   try {
-    [result] = await connection.execute(sql, params);
+    result = await run(connection, sql, params);
     return result;
   } catch (error) {
     failure = error;
@@ -54,7 +40,7 @@ export async function query(sql, params = [], connection = pool) {
       was_successful: !failure,
       error_code: failure?.code ?? null,
       error_message: failure
-        ? `Database execution failed (${failure.code ?? "unknown"}, SQLSTATE ${failure.sqlState ?? "unknown"})`
+        ? `Database execution failed (SQLSTATE ${failure.code ?? "unknown"})`
         : null,
       transaction_id: logContext.getStore()?.transactionId ?? null,
       started_at: startedAt,
@@ -63,15 +49,15 @@ export async function query(sql, params = [], connection = pool) {
   }
 }
 export async function transaction(fn) {
-  const connection = await pool.getConnection();
+  const connection = await pool.connect();
   const transactionId = randomUUID();
   return logContext.run(
     { ...logContext.getStore(), transactionId },
     async () => {
       try {
-        await connection.beginTransaction();
+        await connection.query("BEGIN");
         const result = await fn(connection);
-        await connection.commit();
+        await connection.query("COMMIT");
         void applicationLog(
           "debug",
           "database.transaction.committed",
@@ -80,7 +66,7 @@ export async function transaction(fn) {
         );
         return result;
       } catch (error) {
-        await connection.rollback();
+        await connection.query("ROLLBACK").catch(() => {});
         void applicationLog(
           "warn",
           "database.transaction.rolled_back",

@@ -26,7 +26,7 @@ const expected = {
 let missing = 0;
 for (const [table, columns] of Object.entries(expected)) {
   const rows = await query(
-    "SELECT COLUMN_NAME AS name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?",
+    "SELECT column_name AS name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=?",
     [table],
   );
   const have = new Set(rows.map((row) => row.name));

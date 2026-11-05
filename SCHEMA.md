@@ -1,3 +1,5 @@
+> **Database engine: PostgreSQL.** This document was written for the former MySQL schema. Column names and relationships are unchanged. In PostgreSQL ids are `uuid`, JSON columns are `jsonb`, enums are `varchar` with CHECK constraints, `users.email` is `citext`, timestamps are UTC `timestamp(3)`, and `updated_at` is maintained by triggers. The authoritative definition is `migrations/001_postgres_schema.sql`.
+
 # Database structure
 
 The canonical schema is built by migrations 001–003. Migration 002 upgrades existing records without rebuilding tables. Migration 003 adds four independent logging tables. Standard `id` columns are UUID primary keys; foreign keys identify the related entity explicitly. API aliases such as `name` and `text` remain compatible while storage uses descriptive names.

@@ -141,7 +141,7 @@ test("referral filters and sorts bind every value and whitelist ordering", () =>
     offset: 0,
   });
   assert.equal((built.sql.match(/\?/g) ?? []).length, built.params.length);
-  assert.ok(built.sql.includes("ORDER BY authorScore DESC"));
+  assert.ok(built.sql.includes('ORDER BY "authorScore" DESC'));
   assert.ok(built.params.includes("%TypeScript%"));
   const unknown = buildReferralListQuery({
     filters: { search: "", status: "all", sort: "x; DROP TABLE users" },

@@ -1,6 +1,6 @@
 # LayoffCircle backend
 
-Node.js 22+, Express 5, and MySQL REST API for the `laidoff-web` app. The frontend now uses the API for authentication. Feature screens now use the authenticated frontend server proxy for API reads and writes.
+Node.js 22+, Express 5, and PostgreSQL REST API for the `laidoff-web` app. The frontend now uses the API for authentication. Feature screens now use the authenticated frontend server proxy for API reads and writes.
 
 ## Start locally
 
@@ -10,15 +10,17 @@ npm ci
 cp .env.example .env
 ```
 
-Start your installed MySQL service, then edit `.env` with its host, port, username, and password. Connect with an administrative MySQL account and create the database and application user:
+Start your PostgreSQL service (the `postgresql-contrib` package must be installed: the schema uses the `pg_trgm` and `citext` extensions), then edit `.env` with its host, port, username, and password. Connect with an administrative account (`psql -U postgres`) and create the database and application user. A role with CREATE on the database can create the extensions on PostgreSQL 13+; otherwise run `CREATE EXTENSION pg_trgm; CREATE EXTENSION citext;` once as a superuser:
 
 ```sql
-CREATE DATABASE laidoff CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'laidoff'@'127.0.0.1' IDENTIFIED BY 'replace-with-your-password';
-GRANT ALL PRIVILEGES ON laidoff.* TO 'laidoff'@'127.0.0.1';
+CREATE ROLE laidoff LOGIN PASSWORD 'replace-with-your-password';
+CREATE DATABASE laidoff OWNER laidoff;
+\c laidoff
+CREATE EXTENSION IF NOT EXISTS pg_trgm;   -- from postgresql-contrib
+CREATE EXTENSION IF NOT EXISTS citext;    -- from postgresql-contrib
 ```
 
-Set `DB_HOST=127.0.0.1`, `DB_NAME=laidoff`, `DB_USER=laidoff`, and `DB_PASSWORD` to the password you chose. Set `DB_PORT` to your MySQL port (default `3306`). Then:
+Set `DB_HOST=127.0.0.1`, `DB_NAME=laidoff`, `DB_USER=laidoff`, and `DB_PASSWORD` to the password you chose. Set `DB_PORT` to your PostgreSQL port (default `5432`); set `DB_SSL=true` for hosts that require TLS. Then:
 
 ```sh
 npm run db:migrate
@@ -56,7 +58,7 @@ See [API.md](API.md) for endpoints, request examples, and frontend mapping.
 
 ## Database and security
 
-All tables use InnoDB with foreign keys and appropriate uniqueness constraints. User-controlled query values use MySQL2 parameters; pagination and resource IDs are validated. Passwords use salted scrypt hashes. Sessions use random bearer tokens; only SHA-256 token hashes are stored in MySQL. Tokens expire after `SESSION_DAYS` and are revoked on logout, retaining their lifecycle history.
+All tables use InnoDB with foreign keys and appropriate uniqueness constraints. User-controlled query values use bound `pg` parameters (query files keep `?` placeholders; `src/pg-support.js` converts them to `$1…`); pagination and resource IDs are validated. Passwords use salted scrypt hashes. Sessions use random bearer tokens; only SHA-256 token hashes are stored in PostgreSQL. Tokens expire after `SESSION_DAYS` and are revoked on logout, retaining their lifecycle history.
 
 Auth and API requests are rate limited. CORS defaults to the local Next.js app; configure exact allowed origins with `CORS_ORIGINS`. Requests need an `Authorization: Bearer <token>` header. Keep tokens in memory or a server-managed session integration when connecting the frontend; the API does not use browser cookies. Use HTTPS when deployed. Configure `TRUST_PROXY=true` only behind a trusted, single-hop reverse proxy. Rate limits are process-local; multiple API instances need a shared limiter store.
 
@@ -66,9 +68,9 @@ Source links are stored, never fetched by this server. There are no public APIs 
 
 The schema uses descriptive storage columns (for example, `full_name`, `post_content`, `job_title`, and `first_participant_user_id`), domain lifecycle fields, file metadata, and explicit relationships. See [SCHEMA.md](SCHEMA.md) for the complete table/column/index dictionary and [LOGGING.md](LOGGING.md) for the database logging architecture. Existing API field aliases remain compatible.
 
-Request/response, application/error, SQL execution, and mutation audit logs are stored in four dedicated MySQL tables. A durable local outbox retries database failures. Passwords/tokens are redacted; SQL parameter values and binary data are excluded. See `.env.example` for log payload limits and outbox configuration.
+Request/response, application/error, SQL execution, and mutation audit logs are stored in four dedicated PostgreSQL tables. A durable local outbox retries database failures. Passwords/tokens are redacted; SQL parameter values and binary data are excluded. See `.env.example` for log payload limits and outbox configuration.
 
-Migrations are applied in filename order, tracked by checksum, and protected by a database advisory lock. MySQL DDL auto-commits: if a migration fails halfway through, repair the partial schema before rerunning. Never edit an applied migration; add a new one. Create the database before migration. This initial schema targets MySQL 8.4 and also passes the local MySQL 5.7 integration tests.
+Migrations are applied in filename order, tracked by checksum, and protected by a database advisory lock. Each migration runs in a transaction, so a failed one rolls back completely. Never edit an applied migration; add a new one. Create the database before migration. The schema targets PostgreSQL 14+ and was verified on 16. The earlier MySQL migrations are kept in `database/mysql-legacy/`; to move existing data see the last section.
 
 ## Tests
 
@@ -93,8 +95,17 @@ Use the same host, port, and credentials as your test database. The tests cover 
 - `src/auth.js`, `src/security.js`: session authentication and password/token handling.
 - `src/db.js`: database pool and transactions.
 - `src/app.js`: HTTP middleware, routing, and structured errors.
-- `migrations/`: versioned MySQL schema.
+- `migrations/`: versioned PostgreSQL schema.
+- `database/mysql-legacy/`: the former MySQL migrations, kept for reference and the data copy.
 - `scripts/`: migrations and optional fictional seed.
-- `test/`: unit/HTTP tests and MySQL integration tests.
+- `test/`: unit/HTTP tests and PostgreSQL integration tests.
 
 The `.env` file, uploads, and dependencies are ignored by Git. Do not commit database passwords or session tokens.
+
+## Moving existing MySQL data to PostgreSQL
+
+1. Create the empty Postgres database and apply the schema: `npm run db:migrate` (with `DB_*` pointing at Postgres).
+2. Set `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD` for the old database.
+3. Stop writes to the old API, then run `npm run db:copy-from-mysql` (add `-- --skip-logs` to leave the log tables behind).
+
+The copy is a single transaction: it either completes or writes nothing, and it refuses to run against a database that already has users. It prints a per-table row-count comparison. Uploaded files in `uploads/` and `private-uploads/` are not touched; copy those directories to the new host as they are.

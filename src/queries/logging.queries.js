@@ -1,7 +1,6 @@
 import { assertTable, assertColumns } from "./query-guards.js";
 
 export const loggingQueries = {
-  setUtcTimezone: "SET time_zone = '+00:00'",
   insertRecord: ({ table, columns }) => {
     assertTable(table, [
       "api_request_logs",
@@ -10,6 +9,6 @@ export const loggingQueries = {
       "audit_logs",
     ]);
     assertColumns(columns);
-    return `INSERT INTO ${table} (${columns.join(",")}) VALUES (${columns.map(() => "?").join(",")}) ON DUPLICATE KEY UPDATE id=id`;
+    return `INSERT INTO ${table} (${columns.join(",")}) VALUES (${columns.map(() => "?").join(",")}) ON CONFLICT DO NOTHING`;
   },
 };

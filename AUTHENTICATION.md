@@ -1,11 +1,11 @@
 # Email/password and Google authentication
 
-The web app now has `/login` and `/register` pages, protected app navigation, session restoration, and sign-out. Email/password uses the Node.js API's scrypt password hashes and expiring sessions. Google uses Firebase Authentication to prove identity, then exchanges that proof for the same backend session type. MySQL remains the application user/profile database.
+The web app now has `/login` and `/register` pages, protected app navigation, session restoration, and sign-out. Email/password uses the Node.js API's scrypt password hashes and expiring sessions. Google uses Firebase Authentication to prove identity, then exchanges that proof for the same backend session type. PostgreSQL remains the application user/profile database.
 
 ## Local setup
 
 1. Run backend migrations, including `004_google_authentication.sql`.
-2. Start the backend with `npm run dev` after configuring its MySQL `.env`.
+2. Start the backend with `npm run dev` after configuring its PostgreSQL `.env`.
 3. Copy the frontend `.env.example` to `.env.local`. Set `BACKEND_API_URL` to the backend API base, normally `http://127.0.0.1:9090/api/v1`.
 4. Start the frontend with `npm run dev` and open `/register`.
 
@@ -36,7 +36,7 @@ The production token verifier is implemented in [Firebase authentication service
 
 ## Existing accounts and linking
 
-A Google email that already belongs to a password account is not automatically merged. Sign in with the password first, then choose **Link Google account** from the account menu. The backend requires the verified Google email to match the authenticated account and rejects identities attached to someone else. Once linked, either method returns the same MySQL user. Existing profile names and email addresses are not silently overwritten by provider profile changes.
+A Google email that already belongs to a password account is not automatically merged. Sign in with the password first, then choose **Link Google account** from the account menu. The backend requires the verified Google email to match the authenticated account and rejects identities attached to someone else. Once linked, either method returns the same PostgreSQL user. Existing profile names and email addresses are not silently overwritten by provider profile changes.
 
 Logout revokes the current application session. It does not sign out other devices. Firebase's temporary browser sign-in uses in-memory persistence and is cleared after obtaining the ID token. API sessions have their own lifetime; later Firebase revocation does not retroactively revoke a previously exchanged backend session. Suspend the backend account or revoke its sessions when blocking application access.
 

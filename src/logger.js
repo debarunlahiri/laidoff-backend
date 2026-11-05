@@ -1,5 +1,4 @@
 import { loggingQueries } from "./queries/logging.queries.js";
-import mysql from "mysql2/promise";
 import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 import {
@@ -14,6 +13,7 @@ import path from "node:path";
 import { inspect } from "node:util";
 import { config } from "./config.js";
 import { logContext } from "./log-context.js";
+import { createPool, run } from "./pg-support.js";
 
 const secretKey =
   /password|passwd|secret|token|authorization|cookie|credential|api.?key|session.?id/i;
@@ -65,20 +65,7 @@ const allowedTables = new Set([
   "database_query_logs",
   "audit_logs",
 ]);
-const loggingPool = mysql.createPool({
-  host: config.DB_HOST,
-  port: config.DB_PORT,
-  user: config.DB_USER,
-  password: config.DB_PASSWORD,
-  database: config.DB_NAME,
-  connectionLimit: 2,
-  connectTimeout: 1500,
-  timezone: "Z",
-  charset: "utf8mb4",
-});
-loggingPool.on("connection", (connection) =>
-  connection.query(loggingQueries.setUtcTimezone),
-);
+const loggingPool = createPool({ max: 2, connectionTimeoutMillis: 1500 });
 const pendingWrites = new Set();
 let flushing;
 let closed = false;
@@ -126,7 +113,8 @@ export function flushLogs() {
       )
         throw new Error("Invalid log outbox record");
       const columns = Object.keys(row);
-      await loggingPool.execute(
+      await run(
+        loggingPool,
         loggingQueries.insertRecord({ table, columns }),
         columns.map((key) =>
           /_at$/.test(key) && typeof row[key] === "string"

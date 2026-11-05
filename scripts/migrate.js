@@ -10,7 +10,7 @@ import { pool, query } from "../src/db.js";
 installConsoleLogging();
 let connection;
 try {
-  connection = await pool.getConnection();
+  connection = await pool.connect();
   const locks = await query(migrationQueries.acquireLock, [], connection);
   if (!locks[0].acquired) throw new Error("Another migration is running");
   await query(migrationQueries.createMigrationTable, [], connection);
@@ -32,13 +32,21 @@ try {
         throw new Error(`Applied migration changed: ${name}`);
       continue;
     }
-    // MySQL DDL auto-commits: repair a failed migration before rerunning it.
-    for (const statement of sql
-      .split(";")
-      .map((s) => s.trim())
-      .filter(Boolean))
-      await query(statement, [], connection);
-    await query(migrationQueries.recordMigration, [name, checksum], connection);
+    // PostgreSQL DDL is transactional: a failed migration rolls back completely.
+    // The file runs as one multi-statement query (it may contain $$ function bodies).
+    await connection.query("BEGIN");
+    try {
+      await query(sql, [], connection);
+      await query(
+        migrationQueries.recordMigration,
+        [name, checksum],
+        connection,
+      );
+      await connection.query("COMMIT");
+    } catch (error) {
+      await connection.query("ROLLBACK");
+      throw error;
+    }
     console.log(`Applied ${name}`);
   }
 } catch (error) {

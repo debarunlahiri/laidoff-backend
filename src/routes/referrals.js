@@ -193,7 +193,7 @@ referrals.put("/:id/share", async (req, res) => {
   ]);
   if (!found) throw new HttpError(404, "Referral not found");
   await query(
-    "INSERT IGNORE INTO referral_shares(referral_id,user_id) VALUES(?,?)",
+    "INSERT INTO referral_shares(referral_id,user_id) VALUES(?,?) ON CONFLICT DO NOTHING",
     [req.params.id, req.user.id],
   );
   const [{ shares }] = await query(
@@ -269,7 +269,7 @@ referrals.get("/:id/requests", async (req, res) => {
   if (!row || row.user_id !== req.user.id)
     throw new HttpError(404, "Referral not found");
   const [{ requestFields }] = await query(
-    "SELECT request_fields AS requestFields FROM referrals WHERE id=?",
+    'SELECT request_fields AS "requestFields" FROM referrals WHERE id=?',
     [id],
   );
   const fields = parseJson(requestFields, []);

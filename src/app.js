@@ -184,11 +184,13 @@ export function createApp({ verifyGoogle } = {}) {
       return res
         .status(error.code === "LIMIT_FILE_SIZE" ? 413 : 400)
         .json({ error: { message: "Upload rejected: " + error.message } });
-    if (error.code === "ER_DUP_ENTRY")
+    if (error.code === "23505")
+      /* unique_violation */
       return res
         .status(409)
         .json({ error: { message: "This record already exists" } });
-    if (error.code === "ER_NO_REFERENCED_ROW_2")
+    if (error.code === "23503")
+      /* foreign_key_violation */
       return res
         .status(400)
         .json({ error: { message: "Referenced record no longer exists" } });
@@ -208,8 +210,8 @@ export function createApp({ verifyGoogle } = {}) {
             name: error.name,
             message: error.message,
             code: error.code,
-            sqlState: error.sqlState,
-            sqlMessage: error.sqlMessage,
+            detail: error.detail,
+            constraint: error.constraint,
             stack: (error.stack ?? "").split("\n").slice(0, 12),
           }
         : undefined;

@@ -27,13 +27,21 @@ const env = z
     PORT: z.coerce.number().int().min(1).max(65535).default(9090),
     CORS_ORIGINS: z.string().default("http://localhost:3000"),
     DB_HOST: z.string().default("127.0.0.1"),
-    DB_PORT: z.coerce.number().int().default(3306),
+    DB_PORT: z.coerce.number().int().default(5432),
     DB_NAME: z
       .string()
       .regex(/^[a-zA-Z0-9_]+$/)
       .default("laidoff"),
     DB_USER: z.string().default("laidoff"),
     DB_PASSWORD: z.string().default(""),
+    DB_SSL: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+    DB_SSL_REJECT_UNAUTHORIZED: z
+      .enum(["true", "false"])
+      .default("true")
+      .transform((value) => value === "true"),
     DB_CONNECTION_LIMIT: z.coerce.number().int().min(1).max(100).default(10),
     SESSION_DAYS: z.coerce.number().int().min(1).max(30).default(7),
     UPLOAD_DIR: z.string().default("./uploads"),
