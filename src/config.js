@@ -31,8 +31,8 @@ const env = z
     DB_NAME: z
       .string()
       .regex(/^[a-zA-Z0-9_]+$/)
-      .default("laidoff"),
-    DB_USER: z.string().default("laidoff"),
+      .default("laidoffcircle"),
+    DB_USER: z.string().default("laidoffcircle"),
     DB_PASSWORD: z.string().default(""),
     DB_SSL: z
       .enum(["true", "false"])
@@ -47,6 +47,47 @@ const env = z
     UPLOAD_DIR: z.string().default("./uploads"),
     PRIVATE_UPLOAD_DIR: z.string().default("./private-uploads"),
     TRUST_PROXY: z.enum(["true", "false"]).default("false"),
+    // Public frontend base URL, used for links inside emails.
+    APP_URL: z.string().trim().url().default("http://localhost:3000"),
+    // SMTP (Hostinger: smtp.hostinger.com, port 465 with SSL). Email is skipped when unset.
+    SMTP_HOST: z.string().trim().default(""),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(465),
+    SMTP_SECURE: z
+      .enum(["true", "false"])
+      .default("true")
+      .transform((value) => value === "true"),
+    SMTP_USER: z.string().trim().default(""),
+    SMTP_PASSWORD: z.string().default(""),
+    MAIL_FROM_NAME: z.string().trim().default("LayoffCircle"),
+    MAIL_FROM: z.string().trim().default(""),
+    EMAIL_VERIFICATION_HOURS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(168)
+      .default(24),
+    VERIFICATION_REMINDERS_ENABLED: z
+      .enum(["true", "false"])
+      .default("true")
+      .transform((value) => value === "true"),
+    VERIFICATION_REMINDER_AFTER_HOURS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(720)
+      .default(24),
+    VERIFICATION_REMINDER_INTERVAL_HOURS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(720)
+      .default(72),
+    VERIFICATION_REMINDER_MAX: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(20)
+      .default(3),
   })
   .parse(process.env);
 export const config = {

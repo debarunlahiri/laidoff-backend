@@ -5,6 +5,11 @@ import { config } from "./config.js";
 import { pool, query } from "./db.js";
 import { pendingMigrations } from "./pending-migrations.js";
 import {
+  startVerificationReminders,
+  stopVerificationReminders,
+} from "./services/email-verification.js";
+import { closeMailer } from "./services/email.js";
+import {
   applicationLog,
   closeLogger,
   installConsoleLogging,
@@ -23,8 +28,10 @@ async function shutdown(reason, exitCode = 0) {
     "API process stopping",
     { reason, exitCode },
   );
+  stopVerificationReminders();
   if (server) await new Promise((resolve) => server.close(resolve));
   await pool.end();
+  await closeMailer();
   await closeLogger();
   clearTimeout(timeout);
   process.exit(exitCode);
@@ -77,6 +84,7 @@ try {
     });
   });
   attachRealtime(server);
+  startVerificationReminders();
   server.on("error", (error) => {
     void applicationLog(
       "fatal",

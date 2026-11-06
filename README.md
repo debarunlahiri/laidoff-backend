@@ -13,14 +13,14 @@ cp .env.example .env
 Start your PostgreSQL service (the `postgresql-contrib` package must be installed: the schema uses the `pg_trgm` and `citext` extensions), then edit `.env` with its host, port, username, and password. Connect with an administrative account (`psql -U postgres`) and create the database and application user. A role with CREATE on the database can create the extensions on PostgreSQL 13+; otherwise run `CREATE EXTENSION pg_trgm; CREATE EXTENSION citext;` once as a superuser:
 
 ```sql
-CREATE ROLE laidoff LOGIN PASSWORD 'replace-with-your-password';
-CREATE DATABASE laidoff OWNER laidoff;
-\c laidoff
+CREATE ROLE laidoffcircle LOGIN PASSWORD 'replace-with-your-password';
+CREATE DATABASE laidoffcircle OWNER laidoffcircle;
+\c laidoffcircle
 CREATE EXTENSION IF NOT EXISTS pg_trgm;   -- from postgresql-contrib
 CREATE EXTENSION IF NOT EXISTS citext;    -- from postgresql-contrib
 ```
 
-Set `DB_HOST=127.0.0.1`, `DB_NAME=laidoff`, `DB_USER=laidoff`, and `DB_PASSWORD` to the password you chose. Set `DB_PORT` to your PostgreSQL port (default `5432`); set `DB_SSL=true` for hosts that require TLS. Then:
+Set `DB_HOST=127.0.0.1`, `DB_NAME=laidoffcircle`, `DB_USER=laidoffcircle`, and `DB_PASSWORD` to the password you chose. Set `DB_PORT` to your PostgreSQL port (default `5432`); set `DB_SSL=true` for hosts that require TLS. Then:
 
 ```sh
 npm run db:migrate
@@ -43,7 +43,7 @@ The seed adds the frontend's company catalog, fictional members, posts, and refe
 
 ## Included
 
-- Email/password registration/login, Firebase Google sign-in with explicit linking, expiring sessions, logout, and profile updates.
+- Email/password registration/login with email verification, reminder and welcome emails, Firebase Google sign-in with explicit linking, expiring sessions, logout, and profile updates.
 - Company autocomplete catalog and people search.
 - Feed search, topic/company filters, Following, referrals, bookmarks, hidden posts, and sorting.
 - Anonymous posts, photos, mutually exclusive likes/dislikes, comments, reposts, bookmarks, and hiding/restoring posts.
@@ -64,7 +64,7 @@ Auth and API requests are rate limited. CORS defaults to the local Next.js app; 
 
 Image uploads accept one `photo` file up to 5 MB. Sharp decodes, limits pixels, strips metadata, resizes, and re-encodes images as WebP; GIFs become a static image. Uploaded image URLs are publicly readable because feed posts are public. Post creation verifies that the image belongs to its author. SVG and arbitrary files are rejected. The uploads folder needs persistent storage in deployment. Unattached uploads are retained; add a retention job for production storage management.
 
-Source links are stored, never fetched by this server. There are no public APIs to approve notes or verify workforce reports: those require a future authenticated moderation workflow. Reports remain pending and workforce submissions remain user-reported. Messaging is REST-based; a connected frontend can poll for new messages. Native email verification, password recovery, realtime sockets, and administrative moderation are not implemented. Google identity emails are verified by Firebase. See [AUTHENTICATION.md](AUTHENTICATION.md) for setup, security details, and frontend session handling.
+Source links are stored, never fetched by this server. There are no public APIs to approve notes or verify workforce reports: those require a future authenticated moderation workflow. Reports remain pending and workforce submissions remain user-reported. Messaging is REST-based; a connected frontend can poll for new messages. Password recovery, realtime sockets, and administrative moderation are not implemented. Google identity emails are verified by Firebase. See [AUTHENTICATION.md](AUTHENTICATION.md) for setup, security details, and frontend session handling.
 
 The schema uses descriptive storage columns (for example, `full_name`, `post_content`, `job_title`, and `first_participant_user_id`), domain lifecycle fields, file metadata, and explicit relationships. See [SCHEMA.md](SCHEMA.md) for the complete table/column/index dictionary and [LOGGING.md](LOGGING.md) for the database logging architecture. Existing API field aliases remain compatible.
 
@@ -82,8 +82,8 @@ npm run format:check
 Integration tests require a separate migrated database whose name ends in `_test`. They create fictional users and remove their records afterward. Never point them at production.
 
 ```sh
-DB_NAME=laidoff_test npm run db:migrate
-DB_NAME=laidoff_test NODE_ENV=test npm run test:integration
+DB_NAME=laidoffcircle_test npm run db:migrate
+DB_NAME=laidoffcircle_test NODE_ENV=test npm run test:integration
 ```
 
 Use the same host, port, and credentials as your test database. The tests cover authentication/logout, SQL-input validation, CORS, anonymous identity, cross-user ownership boundaries, reaction replacement, bookmarks, hiding/restoring, connection acceptance, referrals, private chats, notifications, and image uploads. Test uploads remain under `UPLOAD_DIR`; use a temporary folder for integration runs.

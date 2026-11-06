@@ -34,6 +34,7 @@ search.get("/", async (req, res) => {
   if (q.length < 2) return res.json(results);
 
   const term = escapeLike(q);
+  const hashtag = /^#[\p{L}\p{N}_]+$/u.test(q) ? q : undefined;
   const contains = `%${term}%`;
   const prefix = `${term}%`;
   const viewer = req.user.id;
@@ -53,7 +54,12 @@ search.get("/", async (req, res) => {
     wants("posts")
       ? (() => {
           const built = buildPostFeedQuery({
-            filters: { search: term, tab: "all", sort: "latest" },
+            filters: {
+              search: hashtag ? undefined : term,
+              hashtag,
+              tab: "all",
+              sort: "latest",
+            },
             userId: viewer,
             ...paging,
           });

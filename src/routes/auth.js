@@ -14,6 +14,14 @@ import { query, transaction } from "../db.js";
 import { hashPassword, verifyPassword } from "../security.js";
 import { authenticate } from "../auth.js";
 import { HttpError, text } from "../http.js";
+import { passwordProblem } from "../password-strength.js";
+import { verificationInfo } from "../verification-gate.js";
+import {
+  sendRegistrationEmails,
+  sendGoogleWelcomeEmail,
+  verifyEmailToken,
+  resendVerification,
+} from "../services/email-verification.js";
 export function createAuthenticationRouter({
   verifyGoogle = verifyGoogleIdentity,
 } = {}) {
@@ -27,6 +35,8 @@ export function createAuthenticationRouter({
   });
   auth.post("/register", async (req, res) => {
     const body = credentials.extend({ name: text(100) }).parse(req.body);
+    const weak = passwordProblem(body.password, body);
+    if (weak) throw new HttpError(400, weak);
     const userId = randomUUID();
     const passwordHash = await hashPassword(body.password);
     const result = await transaction(async (c) => {
@@ -38,10 +48,30 @@ export function createAuthenticationRouter({
       return createSession(userId, req, c);
     });
     if (logContext.getStore()) logContext.getStore().userId = userId;
+    // Verification link + welcome greeting; sent in the background after the account is committed.
+    sendRegistrationEmails({ id: userId, email: body.email, name: body.name });
     res.status(201).json({
       ...result,
-      user: { id: userId, email: body.email, name: body.name },
+      user: {
+        id: userId,
+        email: body.email,
+        name: body.name,
+        ...(await verificationInfo({
+          emailVerified: false,
+          createdAt: new Date(),
+          isAdmin: false,
+        })),
+      },
     });
+  });
+  auth.post("/verify-email", async (req, res) => {
+    const { token } = z
+      .object({ token: z.string().min(20).max(200) })
+      .parse(req.body);
+    res.json(await verifyEmailToken(token));
+  });
+  auth.post("/resend-verification", authenticate, async (req, res) => {
+    res.json(await resendVerification(req.user.id));
   });
   auth.post("/login", async (req, res) => {
     const body = credentials.parse(req.body);
@@ -64,7 +94,10 @@ export function createAuthenticationRouter({
     const { password_hash, account_status, ...user } = rows[0];
     if (logContext.getStore()) logContext.getStore().userId = user.id;
     await query(authenticationQueries.recordLogin, [user.id]);
-    res.json({ ...(await createSession(user.id, req)), user });
+    res.json({
+      ...(await createSession(user.id, req)),
+      user: { ...user, ...(await verificationInfo(user)) },
+    });
   });
   auth.post("/logout", authenticate, async (req, res) => {
     await query(authenticationQueries.revokeSession, [req.tokenHash]);
@@ -74,7 +107,7 @@ export function createAuthenticationRouter({
     const [user] = await query(authenticationQueries.findCurrentProfile, [
       req.user.id,
     ]);
-    res.json(user);
+    res.json({ ...user, ...(await verificationInfo(user)) });
   });
 
   auth.post("/google", async (req, res) => {
@@ -82,8 +115,12 @@ export function createAuthenticationRouter({
       .object({ idToken: z.string().min(1).max(20000) })
       .parse(req.body);
     const identity = await verifyGoogle(idToken);
-    const result = await signInWithGoogleIdentity(identity, req);
+    const { created, ...result } = await signInWithGoogleIdentity(
+      identity,
+      req,
+    );
     if (logContext.getStore()) logContext.getStore().userId = result.user.id;
+    if (created) sendGoogleWelcomeEmail(result.user);
     res.json(result);
   });
   auth.post("/google/link", authenticate, async (req, res) => {

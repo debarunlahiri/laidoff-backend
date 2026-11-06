@@ -52,6 +52,8 @@ The frontend now connects feed, referrals, network actions, messaging, notificat
 
 - `POST /api/v1/auth/register`: `{name,email,password}`.
 - `POST /api/v1/auth/login`: `{email,password}`.
+- `POST /api/v1/auth/verify-email`: `{token}` from the emailed link; marks the email verified (400 if invalid/expired).
+- `POST /api/v1/auth/resend-verification`: authenticated; emails a fresh link (60 s cooldown, 429 if too soon).
 - `POST /api/v1/auth/google`: `{idToken}`; creates or restores a Google-linked user and returns `{token,expiresAt,user}`.
 - `POST /api/v1/auth/google/link`: authenticated, `{idToken}`; links a matching verified Google identity.
 - `GET /api/v1/auth/providers`: authenticated; lists linked providers.
@@ -61,3 +63,29 @@ The frontend now connects feed, referrals, network actions, messaging, notificat
 SQL remains in separate files under `src/queries`. API, database, application, and audit logging cover authentication. Passwords, ID tokens, bearer tokens, and cookies are redacted. Actual Google sign-in requires the Firebase setup above and is not confirmed by mocked integration tests.
 
 References: [Google sign-in](https://firebase.google.com/docs/auth/web/google-signin), [Admin token verification](https://firebase.google.com/docs/auth/admin/verify-id-tokens), [Admin setup](https://firebase.google.com/docs/admin/setup).
+
+## Email verification, reminders and welcome email
+
+Emails go out through SMTP (Hostinger: `smtp.hostinger.com`, port 465, SSL) using `nodemailer`. Set `SMTP_USER`, `SMTP_PASSWORD` and `APP_URL` (the public frontend URL) in `.env`; with SMTP unset, emails are skipped and logged instead of failing requests. Then run `npm run db:migrate` (adds `002_email_verification.sql`).
+
+- **Registration** sends a verification email (link `APP_URL/verify-email?token=...`, valid `EMAIL_VERIFICATION_HOURS`, default 24; only the SHA-256 hash is stored) and a welcome email listing what members can do. Sending is in the background, so a mail outage never fails sign-up. Login is not blocked for unverified users.
+- **Reminders**: every 15 minutes the API emails unverified password accounts a fresh link: first after `VERIFICATION_REMINDER_AFTER_HOURS` (24), then every `VERIFICATION_REMINDER_INTERVAL_HOURS` (72), at most `VERIFICATION_REMINDER_MAX` (3). Reserved `.test` / `example.*` addresses are skipped. Set `VERIFICATION_REMINDERS_ENABLED=false` to turn off.
+- **In-app prompt**: `/auth/me`, login and register responses include `emailVerified`, so the frontend can show a "verify your email" banner with a resend button.
+- **Google sign-up** is already verified; new Google members get only the welcome email.
+- The frontend needs a `/verify-email` page that reads `token` from the URL and POSTs it to `/auth/verify-email`.
+
+## Admin (email management)
+
+Administrators manage the email system at `/admin` in the web app: edit the three email templates (with live preview, test send and restore-default), tune reminder/sending settings, read the delivery log, and edit members (verified flag, status, admin flag, name, reminder count) or resend their emails. Template and setting changes apply to the next email without a restart; environment values are only the defaults.
+
+- Make an account an admin: `npm run admin:make -- you@example.com` (add `--remove` to revoke). Run `npm run db:migrate` first (`003_admin_email.sql`).
+- The admin API lives under `/api/v1/admin/*`. It needs a valid session **and** an active admin account. Anyone else, including normal members, receives the same `404 Route not found` as for any unknown URL, so its existence is not revealed. It has its own rate limit and is not documented in `API.md`.
+- The web app only shows the Admin link to admins and renders the normal 404 page to everyone else, but authorisation is enforced by the backend, never by the UI.
+- You can't remove your own admin access or suspend yourself from the panel.
+
+## Verification gate and caching
+
+- **Gate:** members with an unverified email (Google accounts and admins are exempt) get **read-only** access for `verificationGraceHours` (default 24) after sign-up. Any change (POST/PUT/PATCH/DELETE) is refused with `403` and `code: "EMAIL_NOT_VERIFIED"`. Once the window passes, every API call except the verification endpoints (`/auth/me`, `/auth/logout`, `/auth/verify-email`, `/auth/resend-verification`) is refused with `code: "EMAIL_VERIFICATION_REQUIRED"`, and the web app shows only the verification screen. Admins can change both values, or switch the gate off, in Admin → Settings. The gate runs on the server, so it can't be bypassed from the browser.
+- `/auth/me`, login and register responses include `emailVerified`, `verificationRequired`, `emailVerificationDeadline` and `verificationExpired`.
+- Existing unverified accounts older than the window are locked out until they verify (use Admin → Users to mark someone verified, or switch the gate off).
+- **Caching:** `GET /insights/*` (60 s), `/posts/topic-options` and `/daily-reminder` (5 min) are cached in memory because they are identical for every member; the insights cache is cleared when a workforce report is added. The web app also keeps a per-session stale-while-revalidate cache of every list and page it loads (`lib/cache.ts`), so revisiting a screen shows data instantly and refreshes it quietly. It is cleared when the signed-in member changes, and entries are dropped when related data is modified.

@@ -40,3 +40,15 @@ test("invalid JSON returns a structured error", async () => {
     .expect(400);
   assert.equal(response.body.error.message, "Invalid JSON");
 });
+
+test("admin API is invisible without a session and gives no hint it exists", async () => {
+  const anonymous = await request(app).get("/api/v1/admin/users").expect(401);
+  const unknown = await request(app)
+    .get("/api/v1/nonexistent/users")
+    .expect(401);
+  assert.deepEqual(anonymous.body, unknown.body);
+  await request(app)
+    .get("/api/v1/admin/email/templates")
+    .set("Authorization", "Bearer invalid")
+    .expect(401);
+});

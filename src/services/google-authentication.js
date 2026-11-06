@@ -32,6 +32,7 @@ export async function signInWithGoogleIdentity(identity, req) {
     );
     let user;
     let identityId;
+    let created = false;
     if (existing) {
       if (existing.accountStatus !== "active")
         throw new HttpError(403, "This account is not active");
@@ -78,6 +79,7 @@ export async function signInWithGoogleIdentity(identity, req) {
         name: identity.name,
         profileImageUrl: identity.pictureUrl,
       };
+      created = true;
       await query(
         sql.createGoogleUser,
         [user.id, user.email, user.name, user.profileImageUrl],
@@ -94,7 +96,8 @@ export async function signInWithGoogleIdentity(identity, req) {
         "google.com",
         identityId,
       )),
-      user,
+      user: { ...user, emailVerified: true },
+      created,
     };
   });
 }

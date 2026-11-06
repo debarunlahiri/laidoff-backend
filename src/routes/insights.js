@@ -1,3 +1,4 @@
+import { clearResponseCache } from "../response-cache.js";
 import { insightQueries } from "../queries/insights.queries.js";
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
@@ -44,6 +45,7 @@ insights.post("/reports", async (req, res) => {
     body.hires,
     body.sourceUrl,
   ]);
+  clearResponseCache("/insights");
   res.status(201).json({ id, status: "user_reported" });
 });
 insights.get("/", async (req, res) => {

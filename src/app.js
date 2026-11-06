@@ -21,6 +21,9 @@ import { messages } from "./routes/messages.js";
 import { insights } from "./routes/insights.js";
 import { uploads } from "./routes/uploads.js";
 import { search } from "./routes/search.js";
+import { admin } from "./routes/admin.js";
+import { enforceVerification } from "./verification-gate.js";
+import { cacheResponses } from "./response-cache.js";
 export function createApp({ verifyGoogle } = {}) {
   const app = express();
   app.disable("x-powered-by");
@@ -75,7 +78,7 @@ export function createApp({ verifyGoogle } = {}) {
     authLimiter,
     createAuthenticationRouter({ verifyGoogle }),
   );
-  app.use("/api/v1", (req, res, next) => {
+  app.use("/api/v1", async (req, res, next) => {
     const publicRead =
       req.method === "GET" &&
       /^(\/daily-reminder|\/search|\/posts(?:\/topics|\/topic-options|\/[a-zA-Z0-9-]+(?:\/comments)?)?|\/referrals|\/companies(?:\/[a-zA-Z0-9-]+)?|\/users(?:\/[a-zA-Z0-9-]+(?:\/stats)?)?|\/insights(?:\/[-a-zA-Z0-9_]+)*)\/?$/.test(
@@ -85,8 +88,17 @@ export function createApp({ verifyGoogle } = {}) {
       req.user = { id: null };
       return next();
     }
-    return authenticate(req, res, next);
+    let signedIn = false;
+    await authenticate(req, res, () => (signedIn = true));
+    if (!signedIn) return;
+    // Unverified members: read-only for the grace period, then locked out.
+    await enforceVerification(req);
+    next();
   });
+  // Same answer for everyone, so a short shared cache removes repeat database work.
+  app.use("/api/v1/insights", cacheResponses(60000));
+  app.use("/api/v1/posts/topic-options", cacheResponses(300000));
+  app.use("/api/v1/daily-reminder", cacheResponses(300000));
   // One-time ticket for opening the WebSocket (see realtime.js).
   app.post("/api/v1/ws-ticket", (req, res) => {
     res.json({ ticket: issueTicket(req.user.id), expiresIn: 30 });
@@ -97,6 +109,7 @@ export function createApp({ verifyGoogle } = {}) {
     if (!rows.length) return res.status(204).end();
     res.json(rows[Math.floor(Date.now() / 86400000) % rows.length]);
   });
+  app.use("/api/v1/admin", admin);
   app.use("/api/v1", people);
   app.use("/api/v1/posts", posts);
   app.use("/api/v1/referrals", referrals);
@@ -220,6 +233,7 @@ export function createApp({ verifyGoogle } = {}) {
 
     res.status(status).json({
       error: {
+        ...(error.appCode && { code: error.appCode }),
         message:
           status === 500
             ? "Internal server error"

@@ -27,7 +27,10 @@ export function buildPostFeedQuery({ filters, userId, limit, offset }) {
     conditions.push("p.company_id=?");
     params.push(filters.companyId);
   }
-  if (filters.search) {
+  if (filters.hashtag) {
+    conditions.push("p.post_content ~* ?");
+    params.push(`(^|[^[:alnum:]_#/])${filters.hashtag}([^[:alnum:]_]|$)`);
+  } else if (filters.search) {
     conditions.push(
       "(p.post_content ILIKE ? OR c.company_name ILIKE ? OR (p.is_anonymous=FALSE AND u.full_name ILIKE ?))",
     );

@@ -1,9 +1,11 @@
 import { resourceQueries } from "./queries/resources.queries.js";
 import { z } from "zod";
 export class HttpError extends Error {
-  constructor(status, message) {
+  // appCode: stable machine-readable reason the frontend can react to.
+  constructor(status, message, appCode) {
     super(message);
     this.status = status;
+    this.appCode = appCode;
   }
 }
 export const id = z.string().uuid();
