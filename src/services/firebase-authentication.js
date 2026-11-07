@@ -2,6 +2,7 @@ import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { config } from "../config/config.js";
 import { HttpError } from "../utils/http.js";
+import { applicationLog } from "../utils/logger.js";
 
 export async function verifyGoogleIdentity(idToken) {
   if (!config.FIREBASE_PROJECT_ID)
@@ -38,6 +39,16 @@ export async function verifyGoogleIdentity(idToken) {
         401,
         "Google session expired or invalid. Please sign in again.",
       );
+    // The member sees a generic message; the real cause (bad/missing service
+    // account credentials, wrong project, network) must be visible to operators.
+    console.error("[google-auth] verify failed:", error.code ?? error.name, error.message);
+    applicationLog(
+      "error",
+      "auth.google.verify_failed",
+      `Google ID token could not be verified: ${error.code ?? error.name}: ${error.message}`,
+      { projectId: config.FIREBASE_PROJECT_ID },
+      error,
+    );
     throw new HttpError(
       503,
       "Google sign-in could not be verified. Please try again later.",

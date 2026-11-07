@@ -25,10 +25,10 @@ export const adminQueries = {
     `SELECT id,user_id AS "userId",recipient,template_key AS "template",subject,status,error_code AS "errorCode",created_at AS "createdAt" FROM email_logs ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
   countLogs: (where) => `SELECT count(*) AS total FROM email_logs ${where}`,
   listUsers: (where) =>
-    `SELECT id,email,full_name AS name,is_admin AS "isAdmin",email_verified_at AS "emailVerifiedAt",account_status AS "accountStatus",created_at AS "createdAt",last_login_at AS "lastLoginAt",verification_reminder_count AS "reminderCount",verification_reminder_sent_at AS "reminderSentAt",password_hash IS NOT NULL AS "hasPassword" FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    `SELECT id,email,full_name AS name,is_admin AS "isAdmin",email_verified_at AS "emailVerifiedAt",account_status AS "accountStatus",(SELECT count(*)::int FROM user_warnings w WHERE w.user_id=users.id) AS "warningCount",created_at AS "createdAt",last_login_at AS "lastLoginAt",verification_reminder_count AS "reminderCount",verification_reminder_sent_at AS "reminderSentAt",password_hash IS NOT NULL AS "hasPassword" FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
   countUsers: (where) => `SELECT count(*) AS total FROM users ${where}`,
   findUser:
-    'SELECT id,email,full_name AS name,is_admin AS "isAdmin",email_verified_at AS "emailVerifiedAt",account_status AS "accountStatus",created_at AS "createdAt",last_login_at AS "lastLoginAt",verification_reminder_count AS "reminderCount",verification_reminder_sent_at AS "reminderSentAt",password_hash IS NOT NULL AS "hasPassword" FROM users WHERE id=?',
+    'SELECT id,email,full_name AS name,is_admin AS "isAdmin",email_verified_at AS "emailVerifiedAt",account_status AS "accountStatus",(SELECT count(*)::int FROM user_warnings w WHERE w.user_id=users.id) AS "warningCount",created_at AS "createdAt",last_login_at AS "lastLoginAt",verification_reminder_count AS "reminderCount",verification_reminder_sent_at AS "reminderSentAt",password_hash IS NOT NULL AS "hasPassword" FROM users WHERE id=?',
   updateUser: (assignments) =>
     `UPDATE users SET ${assignments.join(",")} WHERE id=?`,
   userEmail: "SELECT email,full_name AS name FROM users WHERE id=?",

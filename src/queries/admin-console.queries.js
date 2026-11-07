@@ -76,6 +76,11 @@ export const adminConsoleQueries = {
   postDetail: `SELECT p.id,p.post_content AS text,p.post_topic AS topic,p.created_at AS "createdAt",p.updated_at AS "updatedAt",
     u.id AS "authorId",u.full_name AS "authorName",u.email AS "authorEmail",u.account_status AS "authorStatus",u.is_admin AS "authorIsAdmin"
     FROM posts p JOIN users u ON u.id=p.user_id WHERE p.id=?`,
+  insertWarning:
+    "INSERT INTO user_warnings(user_id,post_id,issued_by_user_id,warning_reason,warning_note,post_excerpt,warning_type) VALUES(?,?,?,?,?,?,?)",
+  warningCount: "SELECT count(*)::int AS total FROM user_warnings WHERE user_id=?",
+  userWarnings: `SELECT w.id,w.warning_reason AS reason,w.warning_type AS type,w.warning_note AS note,w.created_at AS "createdAt",w.post_id AS "postId",a.full_name AS "issuedBy"
+    FROM user_warnings w LEFT JOIN users a ON a.id=w.issued_by_user_id WHERE w.user_id=? ORDER BY w.created_at DESC LIMIT 20`,
   postReports: `SELECT r.id,r.report_category AS category,r.report_reason AS reason,r.report_status AS status,r.resolution_summary AS "resolutionSummary",r.created_at AS "createdAt",ru.full_name AS "reporterName"
     FROM reports r JOIN users ru ON ru.id=r.user_id WHERE r.post_id=? ORDER BY r.created_at DESC LIMIT 50`,
   postComments: `SELECT c.id,c.comment_content AS text,c.parent_comment_id AS "parentId",c.created_at AS "createdAt",u.id AS "authorId",u.full_name AS "authorName"

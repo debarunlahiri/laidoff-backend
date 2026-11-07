@@ -6,7 +6,8 @@ import { HttpError, page, text, uuid } from "../utils/http.js";
 import { escapeLike } from "../queries/query-guards.js";
 import { topics } from "./posts.js";
 import { adminManage } from "./admin-manage.js";
-import { emailConfigured } from "../services/email.js";
+import { emailConfigured, sendMail } from "../services/email.js";
+import { renderWarningEmail, warningReasons, warningTypes } from "../services/email-templates.js";
 import { adminConsoleQueries as sql } from "../queries/admin-console.queries.js";
 
 // Mounted behind the administrator check in admin.js. Every mutation here is
@@ -144,11 +145,19 @@ adminConsole.get("/posts/:id", async (req, res) => {
   const id = uuid(req.params.id);
   const [post] = await query(sql.postDetail, [id]);
   if (!post) throw new HttpError(404, "Post not found");
-  const [reports, comments] = await Promise.all([
+  const [reports, comments, [warned], warnings] = await Promise.all([
     query(sql.postReports, [id]),
     query(sql.postComments, [id]),
+    query(sql.warningCount, [post.authorId]),
+    query(sql.userWarnings, [post.authorId]),
   ]);
-  res.json({ ...post, reports, comments });
+  res.json({
+    ...post,
+    reports,
+    comments,
+    warningCount: warned?.total ?? 0,
+    warnings,
+  });
 });
 adminConsole.patch("/posts/:id", async (req, res) => {
   const id = uuid(req.params.id);
@@ -172,6 +181,48 @@ adminConsole.post("/posts/:id/reports/resolve", async (req, res) => {
     id,
   ]);
   res.json({ updated: result.affectedRows ?? 0, status: body.status });
+});
+// Emails the author a friendly warning about this post (reason + optional note).
+adminConsole.post("/posts/:id/warn", async (req, res) => {
+  const id = uuid(req.params.id);
+  const body = z
+    .strictObject({
+      reason: z.enum(Object.keys(warningReasons)),
+      type: z.enum(Object.keys(warningTypes)).default("warning"),
+      note: text(1000).optional(),
+    })
+    .parse(req.body);
+  const [post] = await query(sql.postDetail, [id]);
+  if (!post) throw new HttpError(404, "Post not found");
+  const mail = renderWarningEmail({
+    name: post.authorName,
+    reason: body.reason,
+    type: body.type,
+    excerpt: post.text,
+    note: body.note,
+  });
+  const sent = await sendMail({
+    to: post.authorEmail,
+    ...mail,
+    template: "warning",
+    userId: post.authorId,
+  });
+  if (!sent)
+    throw new HttpError(
+      503,
+      "The warning email could not be sent. Check the email settings and try again.",
+    );
+  await query(sql.insertWarning, [
+    post.authorId,
+    id,
+    req.user.id,
+    body.reason,
+    body.note?.trim() || null,
+    post.text.slice(0, 400),
+    body.type,
+  ]);
+  const [{ total }] = await query(sql.warningCount, [post.authorId]);
+  res.json({ sent: true, warningCount: total });
 });
 adminConsole.delete("/comments/:id", async (req, res) => {
   const result = await query(sql.deleteComment, [uuid(req.params.id)]);

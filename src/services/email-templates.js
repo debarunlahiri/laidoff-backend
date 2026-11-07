@@ -310,3 +310,94 @@ export async function buildEmail(key, user, options = {}) {
   });
   return renderEmail(key, effectiveContent(key, stored), vars, options);
 }
+
+// ---- Community warning (sent by an administrator; not an editable template) ----
+export const warningReasons = {
+  language: {
+    label: "Language that doesn't fit our community",
+    text: "Your post uses language that isn't appropriate for LaidOffCircle. We want every conversation here to stay respectful, so please avoid abusive or offensive words.",
+  },
+  harassment: {
+    label: "Targeting or harassing others",
+    text: "Your post appears to target or put down other members. Please keep the focus on sharing and supporting each other.",
+  },
+  spam: {
+    label: "Spam or unwanted promotion",
+    text: "Your post looks like spam or unrequested promotion. Please share things that are useful to the people in this community.",
+  },
+  misleading: {
+    label: "Misleading information",
+    text: "Your post may contain information that could mislead other members. Please double-check facts before sharing.",
+  },
+  off_topic: {
+    label: "Off-topic content",
+    text: "Your post doesn't fit what this community is for. Posts about careers, layoffs, referrals and support are the best fit.",
+  },
+  other: {
+    label: "Community guidelines",
+    text: "Your post doesn't follow our community guidelines.",
+  },
+};
+
+export const warningTypes = {
+  reminder: {
+    label: "Friendly reminder",
+    subject: "A friendly reminder about your recent post on LaidOffCircle",
+    preheader: "A gentle reminder about our community guidelines.",
+    closing:
+      "This is just a friendly reminder, so no action is needed beyond reading our guidelines.",
+  },
+  warning: {
+    label: "Warning",
+    subject: "A note about your recent post on LaidOffCircle",
+    preheader: "A friendly reminder about our community guidelines.",
+    closing:
+      "This is a friendly warning. Repeated issues can lead to content being removed or the account being restricted, so please take a moment to read our guidelines.",
+  },
+  final: {
+    label: "Final warning",
+    subject: "Final warning about your recent post on LaidOffCircle",
+    preheader: "Please read this: further issues can limit your account.",
+    closing:
+      "This is a final warning. If this happens again, your content may be removed and your account may be restricted, so please read our guidelines carefully.",
+  },
+};
+
+export function renderWarningEmail({ name, reason, excerpt, note, type = "warning" }) {
+  const kind = warningTypes[type] ?? warningTypes.warning;
+  const info = warningReasons[reason] ?? warningReasons.other;
+  const first = firstNameOf(name);
+  const guidelines = `${appUrl()}/community-guidelines`;
+  const quote = String(excerpt ?? "").trim().slice(0, 280);
+  const subject = kind.subject;
+  const html = layout({
+    preheader: kind.preheader,
+    bodyHtml: `${h1(`A quick note, ${escapeHtml(first)}`)}
+<p style="margin:0 0 14px">We're writing about a recent post of yours. <strong>${escapeHtml(info.label)}</strong></p>
+<p style="margin:0 0 14px">${escapeHtml(info.text)}</p>
+${
+  quote
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 18px"><tr><td style="background:#f3f5f9;border-left:4px solid ${BRAND};border-radius:6px;padding:12px 14px;font-size:14px;color:${MUTED}">${escapeHtml(quote)}${String(excerpt).trim().length > 280 ? "…" : ""}</td></tr></table>`
+    : ""
+}
+${note?.trim() ? `<p style="margin:0 0 14px"><strong>A note from our team:</strong><br>${escapeHtml(note.trim()).replace(/\n/g, "<br>")}</p>` : ""}
+<p style="margin:0 0 14px">${escapeHtml(kind.closing)}</p>
+${button("Read the community guidelines", guidelines)}
+<p style="margin:20px 0 0;color:${MUTED};font-size:14px">Thank you for helping keep the circle a kind place,<br>The LaidOffCircle team</p>`,
+  });
+  const text = [
+    `A quick note, ${first}`,
+    "",
+    `We're writing about a recent post of yours. ${info.label}`,
+    info.text,
+    quote ? `\n"${quote}"` : "",
+    note?.trim() ? `\nA note from our team: ${note.trim()}` : "",
+    "",
+    kind.closing,
+    `Community guidelines: ${guidelines}`,
+    "",
+    "Thank you for helping keep the circle a kind place,",
+    "The LaidOffCircle team",
+  ].join("\n");
+  return { subject, html, text };
+}
