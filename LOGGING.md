@@ -18,7 +18,7 @@ Every HTTP response includes a server-generated `X-Request-Id`, exposed to allow
 ## Logging application events
 
 ```js
-import { applicationLog } from "./src/logger.js";
+import { applicationLog } from "./src/utils/logger.js";
 
 await applicationLog(
   "info",

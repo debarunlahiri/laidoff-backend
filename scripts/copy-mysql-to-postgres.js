@@ -8,8 +8,8 @@
 // you can fix the cause and simply run it again. It refuses to run if the target already
 // has users. mysql2 is a devDependency used only by this script.
 import mysql from "mysql2/promise";
-import { createPool } from "../src/pg-support.js";
-import { config } from "../src/config.js";
+import { createPool } from "../src/db/pg-support.js";
+import { config } from "../src/config/config.js";
 
 const skipLogs = process.argv.includes("--skip-logs");
 const uuidPattern =

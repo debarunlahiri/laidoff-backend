@@ -1,5 +1,5 @@
-import { query } from "./db.js";
-import { postPollQueries } from "./queries/post-polls.queries.js";
+import { query } from "../db/db.js";
+import { postPollQueries } from "../queries/post-polls.queries.js";
 
 // Adds `poll` to post rows: options with vote counts, the viewer's own votes,
 // and whether the poll has closed. Posts without a poll get `poll: null`.

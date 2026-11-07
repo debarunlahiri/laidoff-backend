@@ -6,10 +6,14 @@ import { randomUUID } from "node:crypto";
 import request from "supertest";
 import sharp from "sharp";
 import { createApp } from "../../src/app.js";
-import { tokenHash } from "../../src/security.js";
-import { applicationLog, closeLogger, flushLogs } from "../../src/logger.js";
-import { config } from "../../src/config.js";
-import { pool, query } from "../../src/db.js";
+import { tokenHash } from "../../src/utils/security.js";
+import {
+  applicationLog,
+  closeLogger,
+  flushLogs,
+} from "../../src/utils/logger.js";
+import { config } from "../../src/config/config.js";
+import { pool, query } from "../../src/db/db.js";
 if (!config.DB_NAME.endsWith("_test"))
   throw new Error("Integration tests require DB_NAME ending in _test");
 const app = createApp();
@@ -409,7 +413,7 @@ test("Google provisioning, repeat login, collision protection, explicit linking,
     verifyGoogle: async (token) => {
       const result = identities.get(token);
       if (!result) {
-        const { HttpError } = await import("../../src/http.js");
+        const { HttpError } = await import("../../src/utils/http.js");
         throw new HttpError(401, "Invalid Google identity");
       }
       return result;

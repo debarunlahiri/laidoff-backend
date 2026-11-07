@@ -1,6 +1,6 @@
 // Prints which referral columns and tables exist and runs the referral list
 // query once, so a 500 from GET /referrals can be traced to its cause.
-import { pool, query } from "../src/db.js";
+import { pool, query } from "../src/db/db.js";
 import { buildReferralListQuery } from "../src/queries/referral-list.queries.js";
 
 const expected = {

@@ -96,7 +96,8 @@ test("comment queries bind params and cap reply parents", async () => {
 });
 
 test("websocket tickets are single use and expire", async () => {
-  const { issueTicket, consumeTicket } = await import("../src/realtime.js");
+  const { issueTicket, consumeTicket } =
+    await import("../src/services/realtime.js");
   const ticket = issueTicket("user-1", 1000);
   assert.equal(consumeTicket(ticket, 2000), "user-1");
   assert.equal(consumeTicket(ticket, 2000), null); // already used
@@ -117,7 +118,7 @@ test("post image queries cap placeholders", async () => {
 });
 
 test("attachPostImages falls back to the legacy single image", async () => {
-  const { attachPostImages } = await import("../src/post-images.js");
+  const { attachPostImages } = await import("../src/services/post-images.js");
   assert.deepEqual(await attachPostImages([]), []);
 });
 

@@ -1,5 +1,5 @@
 import pg from "pg";
-import { config } from "./config.js";
+import { config } from "../config/config.js";
 
 // Keep the wire formats the API used with MySQL (mysql2 `dateStrings: true`):
 // timestamps/dates stay UTC strings ("2026-11-01 08:18:00.123", "2026-11-01"),

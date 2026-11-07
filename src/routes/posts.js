@@ -3,12 +3,12 @@ import { buildPostFeedQuery } from "../queries/post-feed.queries.js";
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { query, transaction } from "../db.js";
-import { HttpError, page, text, uuid, mustExist } from "../http.js";
-import { notify } from "../notifications.js";
+import { query, transaction } from "../db/db.js";
+import { HttpError, page, text, uuid, mustExist } from "../utils/http.js";
+import { notify } from "../services/notifications.js";
 import { postImageQueries } from "../queries/post-images.queries.js";
-import { attachPostImages } from "../post-images.js";
-import { attachPolls } from "../post-polls.js";
+import { attachPostImages } from "../services/post-images.js";
+import { attachPolls } from "../services/post-polls.js";
 import { postPollQueries } from "../queries/post-polls.queries.js";
 export const posts = Router();
 posts.get("/topics", async (req, res) =>
@@ -23,14 +23,32 @@ export const topics = [
   "General discussion",
 ];
 posts.get("/topic-options", (_req, res) => res.json(topics));
-export const reportCategories = [
-  { value: "spam", label: "Spam or misleading promotion" },
-  { value: "harassment", label: "Harassment or hate" },
-  { value: "misinformation", label: "False or misleading information" },
-  { value: "inappropriate", label: "Inappropriate or unsafe content" },
-  { value: "other", label: "Something else" },
-];
-posts.get("/report-categories", (_req, res) => res.json(reportCategories));
+// Report options are admin-managed (report_categories / report_subcategories).
+posts.get("/report-categories", async (_req, res) =>
+  res.json(await query(postQueries.reportOptions)),
+);
+const reportBody = z.object({
+  category: z.string().trim().min(1).max(40).default("other"),
+  subcategory: z.string().trim().max(40).nullish(),
+  reason: z.string().trim().max(1000).default(""),
+});
+async function reportChoice(body) {
+  const options = await query(postQueries.reportOptions);
+  const category = options.find((c) => c.value === body.category);
+  if (!category) throw new HttpError(400, "Choose a valid report reason");
+  const sub = body.subcategory
+    ? category.subcategories.find((s) => s.value === body.subcategory)
+    : null;
+  if (body.subcategory && !sub)
+    throw new HttpError(400, "Choose a valid report detail");
+  if (category.subcategories.length && !sub)
+    throw new HttpError(400, "Choose what best describes the problem");
+  return {
+    category: category.value,
+    subcategory: sub?.value ?? null,
+    label: sub ? `${category.label}: ${sub.label}` : category.label,
+  };
+}
 const postSchema = z
   .object({
     // Text may be empty when the post is photos only.
@@ -40,6 +58,8 @@ const postSchema = z
     anonymous: z.boolean().default(false),
     uploadId: z.uuid().nullable().default(null), // single photo (older clients)
     uploadIds: z.array(z.uuid()).max(6).default([]),
+    // Quote another post ("repost with comment").
+    quotedPostId: z.uuid().nullable().default(null),
     // 2-6 options; durationHours null means the poll never closes.
     poll: z
       .object({
@@ -164,6 +184,10 @@ posts.get("/:id", async (req, res) => {
 posts.post("/", async (req, res) => {
   const body = postSchema.parse(req.body);
   if (body.companyId) await mustExist(query, "companies", body.companyId);
+  const quoted = body.quotedPostId
+    ? (await query(postQueries.findAuthor, [body.quotedPostId]))[0]
+    : null;
+  if (body.quotedPostId && !quoted) throw new HttpError(404, "The post you are quoting no longer exists");
   const uploadIds = [
     ...new Set([...(body.uploadId ? [body.uploadId] : []), ...body.uploadIds]),
   ].slice(0, 6);
@@ -187,9 +211,26 @@ posts.post("/", async (req, res) => {
         body.companyId,
         body.anonymous,
         uploadIds[0] ?? null,
+        body.quotedPostId,
       ],
       c,
     );
+    if (quoted) {
+      // A quote also counts as a repost of the original.
+      await query(
+        postQueries.addPostAction({ table: "reposts" }),
+        [body.quotedPostId, req.user.id],
+        c,
+      );
+      await notify(
+        c,
+        quoted.user_id,
+        req.user,
+        "repost",
+        id,
+        `${body.anonymous ? "Someone" : req.user.name} quoted your post.`,
+      );
+    }
     for (const [position, uploadId] of uploadIds.entries())
       await query(postImageQueries.addImage, [id, uploadId, position], c);
     if (body.poll) {
@@ -247,6 +288,38 @@ posts.delete("/:id/poll/vote", async (req, res) => {
   });
   const [row] = await attachPolls([{ id }], req.user.id);
   res.json(row.poll);
+});
+// Authors can fix their own post. The "edited" marker is only set when something changed.
+posts.patch("/:id", async (req, res) => {
+  const id = uuid(req.params.id);
+  const body = z
+    .strictObject({
+      text: z.string().trim().max(20000),
+      topic: z.enum(topics).optional(),
+      companyId: z.uuid().nullable().optional(),
+    })
+    .parse(req.body);
+  const [post] = await query(postQueries.findPostForEdit, [id]);
+  if (!post) throw new HttpError(404, "Post not found");
+  if (post.user_id !== req.user.id)
+    throw new HttpError(403, "Only the author can edit this post");
+  const [{ images }] = await query(
+    "SELECT count(*)::int AS images FROM post_images WHERE post_id=?",
+    [id],
+  );
+  if (!body.text && !images && !post.uploadId)
+    throw new HttpError(400, "Write something or keep a photo");
+  const topic = body.topic ?? post.topic;
+  const companyId =
+    body.companyId === undefined ? post.companyId : body.companyId;
+  if (companyId) await mustExist(query, "companies", companyId);
+  const changed =
+    body.text !== post.text ||
+    topic !== post.topic ||
+    (companyId ?? null) !== (post.companyId ?? null);
+  if (changed)
+    await query(postQueries.updatePost, [body.text, topic, companyId, id]);
+  res.json({ id, edited: changed });
 });
 posts.delete("/:id", async (req, res) => {
   const p = await author(req.params.id);
@@ -348,6 +421,21 @@ posts.get("/:id/comments", async (req, res) => {
     })),
   );
 });
+posts.patch("/:id/comments/:commentId", async (req, res) => {
+  const body = z.strictObject({ text: z.string().trim().max(5000) }).parse(req.body);
+  const [comment] = await query(postQueries.findCommentForEdit, [
+    uuid(req.params.commentId),
+    uuid(req.params.id),
+  ]);
+  if (!comment) throw new HttpError(404, "Comment not found");
+  if (comment.user_id !== req.user.id)
+    throw new HttpError(403, "Only the author can edit this comment");
+  if (!body.text && !comment.uploadId)
+    throw new HttpError(400, "A comment needs some text or its photo");
+  const changed = body.text !== comment.text;
+  if (changed) await query(postQueries.updateComment, [body.text, req.params.commentId]);
+  res.json({ id: req.params.commentId, edited: changed });
+});
 posts.post("/:id/comments", async (req, res) => {
   const body = z
     .object({
@@ -438,12 +526,7 @@ posts.delete("/:id/comments/:commentId/reaction", async (req, res) => {
   res.status(204).end();
 });
 posts.post("/:id/comments/:commentId/reports", async (req, res) => {
-  const body = z
-    .object({
-      category: z.enum(reportCategories.map((c) => c.value)).default("other"),
-      reason: z.string().trim().max(1000).default(""),
-    })
-    .parse(req.body);
+  const body = reportBody.parse(req.body);
   const [comment] = await query(postQueries.findCommentAuthor, [
     uuid(req.params.commentId),
     uuid(req.params.id),
@@ -451,13 +534,14 @@ posts.post("/:id/comments/:commentId/reports", async (req, res) => {
   if (!comment) throw new HttpError(404, "Comment not found");
   if (comment.user_id === req.user.id)
     throw new HttpError(400, "You can't report your own comment");
-  const label = reportCategories.find((c) => c.value === body.category).label;
+  const choice = await reportChoice(body);
   await query(postQueries.upsertCommentReport, [
     randomUUID(),
     req.params.commentId,
     req.user.id,
-    body.category,
-    body.reason || label,
+    choice.category,
+    body.reason || choice.label,
+    choice.subcategory,
   ]);
   res.status(201).json({ status: "pending" });
 });
@@ -493,22 +577,18 @@ posts.post("/:id/notes", async (req, res) => {
   res.status(201).json({ id, status: "pending" });
 });
 posts.post("/:id/reports", async (req, res) => {
-  const body = z
-    .object({
-      category: z.enum(reportCategories.map((c) => c.value)).default("other"),
-      reason: z.string().trim().max(1000).default(""),
-    })
-    .parse(req.body);
+  const body = reportBody.parse(req.body);
   const post = await author(req.params.id);
   if (post.user_id === req.user.id)
     throw new HttpError(400, "You can't report your own post");
-  const label = reportCategories.find((c) => c.value === body.category).label;
+  const choice = await reportChoice(body);
   await query(postQueries.upsertReport, [
     randomUUID(),
     req.params.id,
     req.user.id,
-    body.category,
-    body.reason || label,
+    choice.category,
+    body.reason || choice.label,
+    choice.subcategory,
   ]);
   res.status(201).json({ status: "pending" });
 });

@@ -1,5 +1,5 @@
-import { query } from "./db.js";
-import { postImageQueries } from "./queries/post-images.queries.js";
+import { query } from "../db/db.js";
+import { postImageQueries } from "../queries/post-images.queries.js";
 
 // Adds `images` (ordered /uploads paths) and a first-image `image` to feed rows.
 export async function attachPostImages(rows) {

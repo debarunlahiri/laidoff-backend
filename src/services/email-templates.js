@@ -1,5 +1,5 @@
-import { config } from "../config.js";
-import { query } from "../db.js";
+import { config } from "../config/config.js";
+import { query } from "../db/db.js";
 import { adminQueries as sql } from "../queries/admin.queries.js";
 
 const BRAND = "#3159df";
@@ -7,6 +7,14 @@ const INK = "#182338";
 const MUTED = "#64748b";
 const font = "-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const appUrl = () => config.APP_URL.replace(/\/+$/, "");
+
+// Icon fonts don't work in email clients, so a feature's icon is the name of a
+// PNG served by the web app (public/email-icons/<name>.png). Anything else,
+// such as an emoji from an edited template, is shown as plain text.
+const featureIcon = (icon = "") =>
+  /^[a-z][a-z0-9-]*$/.test(icon)
+    ? `<img src="${appUrl()}/email-icons/${icon}.png" width="20" height="20" alt="" style="display:inline-block;vertical-align:middle;margin-top:-2px;border:0">`
+    : escapeHtml(icon);
 
 const escapeHtml = (value) =>
   String(value).replace(
@@ -40,7 +48,7 @@ export const templateMeta = {
 };
 export const defaultTemplates = {
   verification: {
-    subject: "{{firstName}}, confirm your email to finish joining LayoffCircle",
+    subject: "{{firstName}}, confirm your email to finish joining LaidOffCircle",
     preheader: "One click and your account is secured.",
     heading: "Confirm your email, {{firstName}}",
     intro:
@@ -51,11 +59,11 @@ export const defaultTemplates = {
     htmlOverride: "",
   },
   reminder: {
-    subject: "{{firstName}}, your LayoffCircle email still needs confirming",
+    subject: "{{firstName}}, your LaidOffCircle email still needs confirming",
     preheader: "It takes one click. Here's a fresh link.",
     heading: "Still there, {{firstName}}?",
     intro:
-      "Your LayoffCircle account is set up, but your email address isn't confirmed yet. Until it is, you could miss referral replies, connection requests and messages, and we can't help you recover your account if you're ever locked out.\n\nHere's a fresh link. It takes about five seconds.",
+      "Your LaidOffCircle account is set up, but your email address isn't confirmed yet. Until it is, you could miss referral replies, connection requests and messages, and we can't help you recover your account if you're ever locked out.\n\nHere's a fresh link. It takes about five seconds.",
     buttonLabel: "Confirm my email",
     footerNote:
       "Didn't create an account? You can safely ignore this email and nothing will happen.",
@@ -63,7 +71,7 @@ export const defaultTemplates = {
   },
   welcome: {
     subject: "Welcome to the circle, {{firstName}} 👋",
-    preheader: "You're in. Here's how to get the most out of LayoffCircle.",
+    preheader: "You're in. Here's how to get the most out of LaidOffCircle.",
     heading: "Welcome, {{firstName}}. You're not figuring this out alone.",
     intro:
       "A layoff can feel isolating, but you've just joined a community of people who understand, share leads, and open doors for each other. Your account is ready.",
@@ -72,27 +80,27 @@ export const defaultTemplates = {
     featuresTitle: "What you can do here",
     features: [
       {
-        icon: "💬",
+        icon: "comment-dots",
         title: "Share your story",
         text: "Post updates, photos or polls, anonymously if you prefer. Comment, repost and bookmark what helps.",
       },
       {
-        icon: "🤝",
+        icon: "handshake",
         title: "Ask for and offer referrals",
         text: "Browse openings from people on the inside, request a referral with your documents, or list one you can give.",
       },
       {
-        icon: "🌐",
+        icon: "globe",
         title: "Build your network",
         text: "Follow members, send connection requests, and search people and companies that matter to your next move.",
       },
       {
-        icon: "🔒",
+        icon: "lock",
         title: "Talk privately",
         text: "One-to-one conversations with read receipts, so the right introductions turn into real conversations.",
       },
       {
-        icon: "📊",
+        icon: "chart-column",
         title: "See the bigger picture",
         text: "Explore layoff insights by company and month, and add your own report so others aren't navigating blind.",
       },
@@ -112,8 +120,8 @@ export const defaultTemplates = {
         text: "Follow a few people or request a referral. One real conversation beats a hundred applications.",
       },
     ],
-    buttonLabel: "Open LayoffCircle",
-    signoff: "Wishing you a great next chapter,\nThe LayoffCircle team",
+    buttonLabel: "Open LaidOffCircle",
+    signoff: "Wishing you a great next chapter,\nThe LaidOffCircle team",
     htmlOverride: "",
   },
 };
@@ -177,13 +185,13 @@ function layout({ preheader, bodyHtml, footer }) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden">
 <tr><td style="background:${BRAND};padding:26px 36px">
-<div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.3px">LayoffCircle</div>
+<div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.3px">LaidOffCircle</div>
 <div style="font-size:13px;color:#d6defa;margin-top:4px">Laid off, not disconnected.</div>
 </td></tr>
 <tr><td style="padding:36px 36px 32px;font-size:16px;line-height:1.65">${bodyHtml}</td></tr>
 <tr><td style="padding:0 36px 32px;font-size:12px;line-height:1.6;color:${MUTED}">${footer ?? ""}</td></tr>
 </table>
-<p style="font-size:12px;color:#94a3b8;margin:18px 0 0;line-height:1.6">You're receiving this because an account was created with this email address on LayoffCircle.<br>This is an automated message, please do not reply.</p>
+<p style="font-size:12px;color:#94a3b8;margin:18px 0 0;line-height:1.6">You're receiving this because an account was created with this email address on LaidOffCircle.<br>This is an automated message, please do not reply.</p>
 </td></tr></table></body></html>`;
 }
 
@@ -231,7 +239,7 @@ export function renderEmail(key, content, vars, { verified = false } = {}) {
     const features = (content.features ?? [])
       .map(
         (f) =>
-          `<tr><td width="48" valign="top" style="padding:0 0 18px"><div style="width:40px;height:40px;line-height:40px;text-align:center;font-size:20px;background:#eef2ff;border-radius:10px">${escapeHtml(f.icon ?? "")}</div></td><td valign="top" style="padding:0 0 18px 6px"><div style="font-weight:700;font-size:16px">${rich(f.title, vars)}</div><div style="color:${MUTED};font-size:15px;line-height:1.55;margin-top:2px">${rich(f.text, vars)}</div></td></tr>`,
+          `<tr><td width="48" valign="top" style="padding:0 0 18px"><div style="width:40px;height:40px;line-height:40px;text-align:center;font-size:20px;background:#eef2ff;border-radius:10px">${featureIcon(f.icon)}</div></td><td valign="top" style="padding:0 0 18px 6px"><div style="font-weight:700;font-size:16px">${rich(f.title, vars)}</div><div style="color:${MUTED};font-size:15px;line-height:1.55;margin-top:2px">${rich(f.text, vars)}</div></td></tr>`,
       )
       .join("");
     const steps = (content.steps ?? [])

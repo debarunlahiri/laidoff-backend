@@ -1,5 +1,5 @@
 // Usage: npm run admin:make -- you@example.com        (add --remove to revoke)
-import { pool, query } from "../src/db.js";
+import { pool, query } from "../src/db/db.js";
 const [email, flag] = process.argv.slice(2);
 if (!email) {
   console.error("Usage: npm run admin:make -- <email> [--remove]");

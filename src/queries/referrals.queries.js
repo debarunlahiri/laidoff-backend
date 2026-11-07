@@ -2,7 +2,7 @@ import { assertPagination } from "./query-guards.js";
 
 export const referralQueries = {
   createReferral:
-    "INSERT INTO referrals(id,user_id,company_id,job_title,job_location,work_mode,experience_level,min_experience_years,required_skills,job_description,request_fields) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+    "INSERT INTO referrals(id,user_id,company_id,job_title,job_location,work_mode,experience_level,min_experience_years,required_skills,job_description,request_fields,company_link_url,job_description_url) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
   deleteReferral: "DELETE FROM referrals WHERE id=? AND user_id=?",
   withdrawRequest:
     "DELETE FROM referral_requests WHERE referral_id=? AND user_id=? AND request_status='pending'",

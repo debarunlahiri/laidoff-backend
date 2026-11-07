@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
-import { query } from "../db.js";
-import { page } from "../http.js";
-import { attachPostImages } from "../post-images.js";
-import { attachPolls } from "../post-polls.js";
+import { query } from "../db/db.js";
+import { page } from "../utils/http.js";
+import { attachPostImages } from "../services/post-images.js";
+import { attachPolls } from "../services/post-polls.js";
 import { buildPostFeedQuery } from "../queries/post-feed.queries.js";
 import { buildReferralListQuery } from "../queries/referral-list.queries.js";
 import { escapeLike } from "../queries/query-guards.js";
@@ -35,18 +35,25 @@ search.get("/", async (req, res) => {
 
   const term = escapeLike(q);
   const hashtag = /^#[\p{L}\p{N}_]+$/u.test(q) ? q : undefined;
-  const contains = `%${term}%`;
-  const prefix = `${term}%`;
+  // "#CareerSupport" also looks for the plain word "careersupport" everywhere
+  // else (referral titles/skills, company names, headlines, topics).
+  const bare = hashtag ? escapeLike(hashtag.slice(1)) : term;
+  const contains = `%${bare}%`;
+  const prefix = `${bare}%`;
+  const nameContains = hashtag ? `%${term}%` : contains; // names rarely contain "#tag"
   const viewer = req.user.id;
   const paging = type === "all" ? { limit: perGroup, offset: 0 } : page(req);
-  const wants = (name) => type === "all" || type === name;
+  // A hashtag only relates to content: posts, referrals and topics.
+  const wants = (name) =>
+    (type === "all" || type === name) &&
+    !(hashtag && (name === "users" || name === "companies"));
 
   const [users, posts, referrals, companies] = await Promise.all([
     wants("users")
       ? query(searchQueries.users(paging), [
           viewer,
           viewer,
-          contains,
+          nameContains,
           contains,
           prefix,
         ])
@@ -71,7 +78,7 @@ search.get("/", async (req, res) => {
     wants("referrals")
       ? (() => {
           const built = buildReferralListQuery({
-            filters: { search: term, status: "open" },
+            filters: { search: bare, status: "open" },
             userId: viewer,
             ...paging,
           });
@@ -90,9 +97,25 @@ search.get("/", async (req, res) => {
   }));
   results.referrals = referrals;
   results.companies = companies;
-  if (wants("topics"))
+  if (wants("topics")) {
+    const squash = (v) => v.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+    const needle = squash(hashtag ? hashtag.slice(1) : q);
+    const related = (topic) => {
+      const whole = squash(topic);
+      if (whole.includes(needle) || (hashtag && needle.includes(whole)))
+        return true;
+      // "#careersupport" relates to "Career advice" through the shared word "career".
+      return (
+        Boolean(hashtag) &&
+        topic
+          .toLowerCase()
+          .split(/\s+/)
+          .some((word) => word.length >= 4 && needle.includes(squash(word)))
+      );
+    };
     results.topics = topics
-      .filter((topic) => topic.toLowerCase().includes(q.toLowerCase()))
+      .filter(related)
       .slice(0, type === "all" ? perGroup : paging.limit);
+  }
   res.json(results);
 });

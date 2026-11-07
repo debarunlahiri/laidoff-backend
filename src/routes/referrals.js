@@ -6,19 +6,19 @@ import {
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { query, transaction } from "../db.js";
-import { HttpError, page, text, uuid, mustExist } from "../http.js";
-import { notify } from "../notifications.js";
+import { query, transaction } from "../db/db.js";
+import { HttpError, page, text, uuid, mustExist } from "../utils/http.js";
+import { notify } from "../services/notifications.js";
 import multer from "multer";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { config } from "../config.js";
+import { config } from "../config/config.js";
 import {
   fieldDefinitions,
   withFieldIds,
   parseJson,
   checkAnswers,
-} from "../referral-fields.js";
+} from "../utils/referral-fields.js";
 export const referrals = Router();
 referrals.get("/", async (req, res) => {
   const { limit, offset } = page(req);
@@ -139,6 +139,14 @@ referrals.get("/documents/:docId", async (req, res) => {
   });
   res.sendFile(path.join(config.privateUploadDir, doc.storedName));
 });
+// Optional http(s) link; blank means none.
+const webLink = z
+  .union([
+    z.literal(""),
+    z.url().max(2048).refine((v) => /^https?:\/\//i.test(v), "Use an http(s) link"),
+  ])
+  .default("")
+  .transform((v) => v || null);
 referrals.post("/", async (req, res) => {
   const body = z
     .object({
@@ -152,7 +160,9 @@ referrals.post("/", async (req, res) => {
         .default(null),
       minExperience: z.number().int().min(0).max(60).nullable().default(null),
       skills: text(200),
-      description: z.string().trim().max(5000).default(""),
+      description: z.string().trim().max(10000).default(""),
+      companyLink: webLink,
+      jobLink: webLink,
       requestFields: fieldDefinitions,
     })
     .parse(req.body);
@@ -170,6 +180,8 @@ referrals.post("/", async (req, res) => {
     body.skills,
     body.description,
     JSON.stringify(withFieldIds(body.requestFields)),
+    body.companyLink,
+    body.jobLink,
   ]);
   res.status(201).json({ id, ...body });
 });

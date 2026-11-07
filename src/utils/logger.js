@@ -1,4 +1,4 @@
-import { loggingQueries } from "./queries/logging.queries.js";
+import { loggingQueries } from "../queries/logging.queries.js";
 import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 import {
@@ -11,9 +11,9 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { inspect } from "node:util";
-import { config } from "./config.js";
+import { config } from "../config/config.js";
 import { logContext } from "./log-context.js";
-import { createPool, run } from "./pg-support.js";
+import { createPool, run } from "../db/pg-support.js";
 
 const secretKey =
   /password|passwd|secret|token|authorization|cookie|credential|api.?key|session.?id/i;

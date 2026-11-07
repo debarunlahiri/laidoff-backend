@@ -3,9 +3,9 @@ import { buildProfileUpdateQuery } from "../queries/profile-update.queries.js";
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { query, transaction } from "../db.js";
-import { HttpError, page, text, uuid, mustExist } from "../http.js";
-import { notify } from "../notifications.js";
+import { query, transaction } from "../db/db.js";
+import { HttpError, page, text, uuid, mustExist } from "../utils/http.js";
+import { notify } from "../services/notifications.js";
 export const people = Router();
 people.get("/companies/:id", async (req, res) => {
   const [company] = await query(peopleQueries.findCompany, [
@@ -13,6 +13,29 @@ people.get("/companies/:id", async (req, res) => {
   ]);
   if (!company) throw new HttpError(404, "Company not found");
   res.json(company);
+});
+// Any member can add a company that is missing from the list. A name that already
+// exists (case-insensitive) returns the existing company instead of a duplicate.
+people.post("/companies", async (req, res) => {
+  const b = z
+    .strictObject({
+      name: text(160),
+      website: z.union([z.literal(""), z.url().max(2048)]).default(""),
+      industry: z.string().trim().max(160).default(""),
+      headquarters: z.string().trim().max(160).default(""),
+    })
+    .parse(req.body);
+  const [existing] = await query(
+    "SELECT id,company_name AS name FROM companies WHERE lower(company_name)=lower(?)",
+    [b.name],
+  );
+  if (existing) return res.json({ ...existing, existing: true });
+  const id = randomUUID();
+  await query(
+    "INSERT INTO companies(id,company_name,website_url,industry_name,headquarters_location,created_by_user_id) VALUES(?,?,?,?,?,?)",
+    [id, b.name, b.website || null, b.industry || null, b.headquarters || null, req.user.id],
+  );
+  res.status(201).json({ id, name: b.name, existing: false });
 });
 people.get("/network/stats", async (req, res) => {
   const [stats] = await query(

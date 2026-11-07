@@ -1,10 +1,10 @@
-import { clearResponseCache } from "../response-cache.js";
+import { clearResponseCache } from "../middleware/response-cache.js";
 import { insightQueries } from "../queries/insights.queries.js";
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { query } from "../db.js";
-import { page, mustExist } from "../http.js";
+import { query } from "../db/db.js";
+import { page, mustExist } from "../utils/http.js";
 export const insights = Router();
 const source = z
   .url()

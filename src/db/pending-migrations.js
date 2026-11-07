@@ -1,10 +1,10 @@
 import { readdir } from "node:fs/promises";
 import { query } from "./db.js";
-import { migrationQueries } from "./queries/migrations.queries.js";
+import { migrationQueries } from "../queries/migrations.queries.js";
 
 // Names of migration files that have not been applied to this database yet.
 export async function pendingMigrations() {
-  const files = (await readdir(new URL("../migrations/", import.meta.url)))
+  const files = (await readdir(new URL("../../migrations/", import.meta.url)))
     .filter((name) => name.endsWith(".sql"))
     .sort();
   let applied = [];

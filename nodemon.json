@@ -1,6 +1,6 @@
 {
-  "watch": ["src", ".env"],
-  "ext": "js,json,env",
+  "watch": ["src", "migrations", ".env"],
+  "ext": "js,json,env,sql",
   "ignore": ["node_modules", "uploads", ".log-outbox", "test", "database"],
   "signal": "SIGTERM",
   "delay": "300",

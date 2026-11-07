@@ -1,8 +1,8 @@
-import { sessionQueries } from "./queries/session-authentication.queries.js";
-import { logContext } from "./log-context.js";
-import { query } from "./db.js";
-import { tokenHash } from "./security.js";
-import { HttpError } from "./http.js";
+import { sessionQueries } from "../queries/session-authentication.queries.js";
+import { logContext } from "../utils/log-context.js";
+import { query } from "../db/db.js";
+import { tokenHash } from "../utils/security.js";
+import { HttpError } from "../utils/http.js";
 export async function authenticate(req, res, next) {
   const token = req.headers.authorization?.match(
     /^Bearer ([A-Za-z0-9_-]{43})$/,

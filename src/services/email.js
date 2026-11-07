@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import nodemailer from "nodemailer";
-import { config } from "../config.js";
-import { query } from "../db.js";
-import { applicationLog } from "../logger.js";
+import { config } from "../config/config.js";
+import { query } from "../db/db.js";
+import { applicationLog } from "../utils/logger.js";
 import { adminQueries as sql } from "../queries/admin.queries.js";
 import { getEmailSettings } from "./email-settings.js";
 

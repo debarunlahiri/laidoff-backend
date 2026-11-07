@@ -58,7 +58,7 @@ const env = z
       .transform((value) => value === "true"),
     SMTP_USER: z.string().trim().default(""),
     SMTP_PASSWORD: z.string().default(""),
-    MAIL_FROM_NAME: z.string().trim().default("LayoffCircle"),
+    MAIL_FROM_NAME: z.string().trim().default("LaidOffCircle"),
     MAIL_FROM: z.string().trim().default(""),
     EMAIL_VERIFICATION_HOURS: z.coerce
       .number()

@@ -2,13 +2,13 @@ import { messageQueries } from "../queries/messages.queries.js";
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { query, transaction } from "../db.js";
-import { HttpError, page, text, uuid, mustExist } from "../http.js";
-import { publish } from "../realtime.js";
+import { query, transaction } from "../db/db.js";
+import { HttpError, page, text, uuid, mustExist } from "../utils/http.js";
+import { publish } from "../services/realtime.js";
 import multer from "multer";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { config } from "../config.js";
+import { config } from "../config/config.js";
 export const messages = Router();
 
 // Attachments are kept outside the public uploads folder and only served to the

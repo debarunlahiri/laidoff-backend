@@ -6,16 +6,16 @@ import {
 } from "../services/google-authentication.js";
 import { googleAuthenticationQueries } from "../queries/google-authentication.queries.js";
 import { authenticationQueries } from "../queries/authentication.queries.js";
-import { logContext } from "../log-context.js";
+import { logContext } from "../utils/log-context.js";
 import { Router } from "express";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { query, transaction } from "../db.js";
-import { hashPassword, verifyPassword } from "../security.js";
-import { authenticate } from "../auth.js";
-import { HttpError, text } from "../http.js";
-import { passwordProblem } from "../password-strength.js";
-import { verificationInfo } from "../verification-gate.js";
+import { query, transaction } from "../db/db.js";
+import { hashPassword, verifyPassword } from "../utils/security.js";
+import { authenticate } from "../middleware/auth.js";
+import { HttpError, text } from "../utils/http.js";
+import { passwordProblem } from "../utils/password-strength.js";
+import { verificationInfo } from "../middleware/verification-gate.js";
 import {
   sendRegistrationEmails,
   sendGoogleWelcomeEmail,

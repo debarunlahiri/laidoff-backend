@@ -1,9 +1,10 @@
 import { serverQueries } from "./queries/server.queries.js";
 import { createApp } from "./app.js";
-import { attachRealtime } from "./realtime.js";
-import { config } from "./config.js";
-import { pool, query } from "./db.js";
-import { pendingMigrations } from "./pending-migrations.js";
+import { attachRealtime } from "./services/realtime.js";
+import { config } from "./config/config.js";
+import { pool, query } from "./db/db.js";
+import { pendingMigrations } from "./db/pending-migrations.js";
+import { runMigrations } from "./db/migrate.js";
 import {
   startVerificationReminders,
   stopVerificationReminders,
@@ -13,7 +14,7 @@ import {
   applicationLog,
   closeLogger,
   installConsoleLogging,
-} from "./logger.js";
+} from "./utils/logger.js";
 installConsoleLogging();
 let server;
 let stopping = false;
@@ -62,6 +63,13 @@ process.on("unhandledRejection", (reason) => {
 });
 try {
   await query(serverQueries.checkDatabase);
+  // Bring the schema up to date automatically (set AUTO_MIGRATE=false to opt out,
+  // e.g. when a deploy pipeline runs `npm run db:migrate` itself).
+  if (process.env.AUTO_MIGRATE !== "false") {
+    const applied = await runMigrations({ log: console.info });
+    if (applied.length)
+      console.info(`Database migrated: ${applied.join(", ")}`);
+  }
   // Refuse to accept traffic before the schema and log tables are migrated.
   await query(serverQueries.checkLoggingSchema);
   const pending = await pendingMigrations();
@@ -75,7 +83,7 @@ try {
   }
   server = createApp().listen(config.PORT, config.HOST, () => {
     console.info(
-      `LayoffCircle API listening on http://${config.HOST}:${config.PORT}`,
+      `LaidOffCircle API listening on http://${config.HOST}:${config.PORT}`,
     );
     void applicationLog("info", "server.started", "API ready", {
       host: config.HOST,

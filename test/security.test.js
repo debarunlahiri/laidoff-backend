@@ -5,8 +5,8 @@ import {
   verifyPassword,
   newToken,
   tokenHash,
-} from "../src/security.js";
-import { paging, uuid } from "../src/http.js";
+} from "../src/utils/security.js";
+import { paging, uuid } from "../src/utils/http.js";
 test("passwords use independent salts and reject incorrect values", async () => {
   const a = await hashPassword("a long test password");
   const b = await hashPassword("a long test password");

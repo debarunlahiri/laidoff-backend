@@ -1,6 +1,6 @@
-import { notificationQueries } from "./queries/notifications.queries.js";
+import { notificationQueries } from "../queries/notifications.queries.js";
 import { randomUUID } from "node:crypto";
-import { query } from "./db.js";
+import { query } from "../db/db.js";
 import { publish } from "./realtime.js";
 export async function notify(
   connection,

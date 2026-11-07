@@ -1,7 +1,7 @@
 import { assertPagination, assertTable } from "./query-guards.js";
 
 // Viewer id is the first bind parameter (for myReaction); post id follows.
-const commentColumns = `c.id,c.parent_comment_id AS "parentId",c.comment_content AS text,c.created_at AS "createdAt",u.id AS "authorId",u.full_name AS name,u.profile_image_url AS "profileImageUrl",
+const commentColumns = `c.id,c.parent_comment_id AS "parentId",c.comment_content AS text,c.created_at AS "createdAt",c.edited_at AS "editedAt",u.id AS "authorId",u.full_name AS name,u.profile_image_url AS "profileImageUrl",
  (SELECT COUNT(*) FROM comment_reactions r WHERE r.comment_id=c.id AND r.reaction_type='like') AS likes,
  (SELECT COUNT(*) FROM comment_reactions r WHERE r.comment_id=c.id AND r.reaction_type='dislike') AS dislikes,
  (SELECT r.reaction_type FROM comment_reactions r WHERE r.comment_id=c.id AND r.user_id=?) AS "myReaction",
@@ -13,8 +13,16 @@ export const postQueries = {
   findAuthor: "SELECT user_id,is_anonymous AS anonymous FROM posts WHERE id=?",
   findOwnedUpload: "SELECT id FROM uploads WHERE id=? AND user_id=?",
   createPost:
-    "INSERT INTO posts(id,user_id,post_content,post_topic,company_id,is_anonymous,upload_id) VALUES(?,?,?,?,?,?,?)",
+    "INSERT INTO posts(id,user_id,post_content,post_topic,company_id,is_anonymous,upload_id,quoted_post_id) VALUES(?,?,?,?,?,?,?,?)",
   deletePost: "DELETE FROM posts WHERE id=?",
+  findPostForEdit:
+    "SELECT p.user_id,p.post_content AS text,p.post_topic AS topic,p.company_id AS \"companyId\",p.upload_id AS \"uploadId\" FROM posts p WHERE p.id=?",
+  updatePost:
+    "UPDATE posts SET post_content=?,post_topic=?,company_id=?,edited_at=utc_now(),updated_at=utc_now() WHERE id=?",
+  findCommentForEdit:
+    "SELECT user_id,comment_content AS text,upload_id AS \"uploadId\" FROM comments WHERE id=? AND post_id=?",
+  updateComment:
+    "UPDATE comments SET comment_content=?,edited_at=utc_now(),updated_at=utc_now() WHERE id=?",
   findReaction:
     "SELECT reaction_type AS reaction FROM reactions WHERE post_id=? AND user_id=?",
   upsertReaction:
@@ -98,7 +106,11 @@ export const postQueries = {
     "INSERT INTO community_notes(id,post_id,user_id,note_content,source_url) VALUES(?,?,?,?,?)",
   findCommentAuthor: "SELECT user_id FROM comments WHERE id=? AND post_id=?",
   upsertCommentReport:
-    "INSERT INTO comment_reports(id,comment_id,user_id,report_category,report_reason) VALUES(?,?,?,?,?) ON CONFLICT (comment_id,user_id) DO UPDATE SET report_category=EXCLUDED.report_category,report_reason=EXCLUDED.report_reason",
+    "INSERT INTO comment_reports(id,comment_id,user_id,report_category,report_reason,report_subcategory) VALUES(?,?,?,?,?,?) ON CONFLICT (comment_id,user_id) DO UPDATE SET report_category=EXCLUDED.report_category,report_reason=EXCLUDED.report_reason,report_subcategory=EXCLUDED.report_subcategory",
   upsertReport:
-    "INSERT INTO reports(id,post_id,user_id,report_category,report_reason) VALUES(?,?,?,?,?) ON CONFLICT (post_id,user_id) DO UPDATE SET report_category=EXCLUDED.report_category,report_reason=EXCLUDED.report_reason",
+    "INSERT INTO reports(id,post_id,user_id,report_category,report_reason,report_subcategory) VALUES(?,?,?,?,?,?) ON CONFLICT (post_id,user_id) DO UPDATE SET report_category=EXCLUDED.report_category,report_reason=EXCLUDED.report_reason,report_subcategory=EXCLUDED.report_subcategory",
+  reportOptions: `SELECT c.category_key AS value,c.category_label AS label,c.category_description AS description,c.category_icon AS icon,
+    COALESCE((SELECT json_agg(json_build_object('value',s.subcategory_key,'label',s.subcategory_label) ORDER BY s.display_position,s.subcategory_label)
+      FROM report_subcategories s WHERE s.category_id=c.id AND s.is_active),'[]'::json) AS subcategories
+    FROM report_categories c WHERE c.is_active ORDER BY c.display_position,c.category_label`,
 };

@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
-import { correlation, recordLog, applicationLog } from "./logger.js";
-import { logContext } from "./log-context.js";
-import { config } from "./config.js";
+import { correlation, recordLog, applicationLog } from "../utils/logger.js";
+import { logContext } from "../utils/log-context.js";
+import { config } from "../config/config.js";
 import { createPool, run } from "./pg-support.js";
 export const pool = createPool();
 export async function query(sql, params = [], connection = pool) {

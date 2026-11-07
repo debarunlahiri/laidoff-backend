@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { query, transaction } from "../db.js";
+import { query, transaction } from "../db/db.js";
 import { googleAuthenticationQueries as sql } from "../queries/google-authentication.queries.js";
 import { authenticationQueries } from "../queries/authentication.queries.js";
 import { createSession } from "./authentication-sessions.js";
-import { HttpError } from "../http.js";
+import { HttpError } from "../utils/http.js";
 
 async function insertIdentity(identity, userId, connection) {
   const id = randomUUID();

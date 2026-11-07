@@ -1,4 +1,4 @@
-import { resourceQueries } from "./queries/resources.queries.js";
+import { resourceQueries } from "../queries/resources.queries.js";
 import { z } from "zod";
 export class HttpError extends Error {
   // appCode: stable machine-readable reason the frontend can react to.

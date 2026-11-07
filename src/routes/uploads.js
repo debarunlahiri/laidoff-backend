@@ -5,9 +5,9 @@ import sharp from "sharp";
 import { randomUUID, createHash } from "node:crypto";
 import { mkdir, unlink, readFile } from "node:fs/promises";
 import path from "node:path";
-import { query } from "../db.js";
-import { config } from "../config.js";
-import { HttpError } from "../http.js";
+import { query } from "../db/db.js";
+import { config } from "../config/config.js";
+import { HttpError } from "../utils/http.js";
 export const uploads = Router();
 const upload = multer({
   storage: multer.memoryStorage(),

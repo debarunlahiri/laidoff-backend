@@ -3,9 +3,9 @@
 // (POST /api/v1/ws-ticket) and present it when opening /ws.
 import { randomBytes } from "node:crypto";
 import { WebSocketServer } from "ws";
-import { config } from "./config.js";
-import { query } from "./db.js";
-import { messageQueries } from "./queries/messages.queries.js";
+import { config } from "../config/config.js";
+import { query } from "../db/db.js";
+import { messageQueries } from "../queries/messages.queries.js";
 
 const ticketLifetime = 30000;
 const tickets = new Map(); // ticket -> { userId, expires }

@@ -2,10 +2,11 @@ import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { query } from "../db.js";
-import { HttpError, page, text, uuid } from "../http.js";
-import { config } from "../config.js";
+import { query } from "../db/db.js";
+import { HttpError, page, text, uuid } from "../utils/http.js";
+import { config } from "../config/config.js";
 import { adminQueries as sql } from "../queries/admin.queries.js";
+import { adminConsole } from "./admin-console.js";
 import { emailConfigured, sendMail } from "../services/email.js";
 import {
   emailSettingsSchema,
@@ -48,6 +49,8 @@ admin.use(
   },
 );
 
+admin.use(adminConsole);
+
 const like = (value) => `%${value.replace(/[\\%_]/g, "\\$&")}%`;
 const templateKey = (value) => {
   if (!templateKeys.includes(value))
@@ -68,7 +71,7 @@ const contentSchema = z
     featuresTitle: str(100),
     stepsTitle: str(100),
     features: z
-      .array(z.strictObject({ icon: str(8), title: str(100), text: str(500) }))
+      .array(z.strictObject({ icon: str(40), title: str(100), text: str(500) }))
       .max(8),
     steps: z.array(z.strictObject({ title: str(100), text: str(500) })).max(6),
     htmlOverride: str(60000),
@@ -219,6 +222,10 @@ admin.get("/users", async (req, res) => {
     .object({
       search: z.string().max(160).optional(),
       verified: z.enum(["all", "yes", "no"]).default("all"),
+      status: z
+        .enum(["all", "active", "suspended", "deactivated"])
+        .default("all"),
+      role: z.enum(["all", "admin", "member"]).default("all"),
     })
     .parse(req.query);
   const conditions = [];
@@ -230,6 +237,12 @@ admin.get("/users", async (req, res) => {
   if (filters.verified === "yes")
     conditions.push("email_verified_at IS NOT NULL");
   if (filters.verified === "no") conditions.push("email_verified_at IS NULL");
+  if (filters.status !== "all") {
+    conditions.push("account_status=?");
+    params.push(filters.status);
+  }
+  if (filters.role !== "all")
+    conditions.push(`is_admin=${filters.role === "admin"}`);
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const [{ total }] = await query(sql.countUsers(where), params);
   res.json({

@@ -7,10 +7,10 @@ import {
   applicationLog,
   closeLogger,
   installConsoleLogging,
-} from "../src/logger.js";
-import { config } from "../src/config.js";
-import { pool, query, transaction } from "../src/db.js";
-import { hashPassword } from "../src/security.js";
+} from "../src/utils/logger.js";
+import { config } from "../src/config/config.js";
+import { pool, query, transaction } from "../src/db/db.js";
+import { hashPassword } from "../src/utils/security.js";
 import {
   comments,
   conversations,

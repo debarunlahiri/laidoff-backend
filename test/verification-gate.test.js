@@ -3,8 +3,11 @@ import assert from "node:assert/strict";
 import {
   enforceVerification,
   verificationInfo,
-} from "../src/verification-gate.js";
-import { cacheResponses, clearResponseCache } from "../src/response-cache.js";
+} from "../src/middleware/verification-gate.js";
+import {
+  cacheResponses,
+  clearResponseCache,
+} from "../src/middleware/response-cache.js";
 
 const hoursAgo = (h) => new Date(Date.now() - h * 3600000);
 const user = (over) => ({

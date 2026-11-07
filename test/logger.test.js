@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { redact, logJson } from "../src/logger.js";
+import { redact, logJson } from "../src/utils/logger.js";
 
 test("redaction handles nested credentials, header variants, binary values, and cycles", () => {
   const object = {

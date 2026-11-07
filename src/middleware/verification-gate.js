@@ -1,5 +1,5 @@
-import { HttpError } from "./http.js";
-import { getEmailSettings } from "./services/email-settings.js";
+import { HttpError } from "../utils/http.js";
+import { getEmailSettings } from "../services/email-settings.js";
 
 const utcMs = (value) =>
   value instanceof Date

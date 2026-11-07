@@ -3,12 +3,12 @@ import {
   installConsoleLogging,
   closeLogger,
   applicationLog,
-} from "../src/logger.js";
+} from "../src/utils/logger.js";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { pool, query, transaction } from "../src/db.js";
-import { hashPassword } from "../src/security.js";
-import { config } from "../src/config.js";
+import { pool, query, transaction } from "../src/db/db.js";
+import { hashPassword } from "../src/utils/security.js";
+import { config } from "../src/config/config.js";
 installConsoleLogging();
 try {
   if (config.NODE_ENV === "production")

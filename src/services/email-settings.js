@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { config } from "../config.js";
-import { query } from "../db.js";
+import { config } from "../config/config.js";
+import { query } from "../db/db.js";
 import { adminQueries as sql } from "../queries/admin.queries.js";
 
 // Admin-editable values. Environment variables provide the defaults.

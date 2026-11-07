@@ -1,7 +1,7 @@
 import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { config } from "../config.js";
-import { HttpError } from "../http.js";
+import { config } from "../config/config.js";
+import { HttpError } from "../utils/http.js";
 
 export async function verifyGoogleIdentity(idToken) {
   if (!config.FIREBASE_PROJECT_ID)

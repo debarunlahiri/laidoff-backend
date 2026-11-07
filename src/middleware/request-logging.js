@@ -1,7 +1,40 @@
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
-import { logContext } from "./log-context.js";
-import { recordLog, logJson, applicationLog } from "./logger.js";
+import { logContext } from "../utils/log-context.js";
+import { recordLog, logJson, applicationLog, redact } from "../utils/logger.js";
+
+// Console output goes to stdout directly (not console.log) so it is not copied
+// into the application_logs table, which already stores every request.
+const detailed = process.env.HTTP_LOG_DETAIL !== "false";
+const quiet = (path) => path === "/health" || path.startsWith("/uploads/");
+const color = process.stdout.isTTY;
+const paint = (code, text) => (color ? `\x1b[${code}m${text}\x1b[0m` : text);
+const shorten = (text, max = 800) =>
+  text.length > max ? `${text.slice(0, max)}… (+${text.length - max} chars)` : text;
+const show = (value, max = 800) => {
+  try {
+    return shorten(JSON.stringify(redact(value)), max);
+  } catch {
+    return "[unserialisable]";
+  }
+};
+function printExchange({ req, res, requestId, completed, ms, responseBody, file }) {
+  const path = req.originalUrl.split("?")[0];
+  const status = res.statusCode;
+  const tone = status >= 500 ? "31" : status >= 400 ? "33" : status >= 300 ? "36" : "32";
+  const head = `${paint("1", req.method)} ${req.originalUrl} ${paint(tone, `${status}${completed ? "" : " (interrupted)"}`)} ${ms}ms`;
+  if (!detailed || quiet(path)) return void process.stdout.write(`[http] ${head}\n`);
+  const lines = [
+    `[http] ${head}  ${paint("2", requestId)}`,
+    `  ${paint("36", "▶ request headers ")}${show(req.headers, 2000)}`,
+  ];
+  if (req.body && Object.keys(req.body).length)
+    lines.push(`  ${paint("36", "▶ request body    ")}${show(file ? { fields: req.body, attachment: file } : req.body)}`);
+  else if (file) lines.push(`  ${paint("36", "▶ request file    ")}${show(file)}`);
+  lines.push(`  ${paint("35", "◀ response headers")} ${show(res.getHeaders(), 2000)}`);
+  if (responseBody) lines.push(`  ${paint("35", "◀ response body   ")}${shorten(responseBody)}`);
+  process.stdout.write(`${lines.join("\n")}\n`);
+}
 
 export function requestLogging(req, res, next) {
   const requestId = randomUUID();
@@ -48,6 +81,15 @@ export function requestLogging(req, res, next) {
           sizeBytes: req.file.size,
         }
       : null;
+    printExchange({
+      req,
+      res,
+      requestId,
+      completed,
+      ms: (performance.now() - started).toFixed(1),
+      responseBody,
+      file,
+    });
     void recordLog("api_request_logs", {
       request_id: requestId,
       actor_user_id: actorId,

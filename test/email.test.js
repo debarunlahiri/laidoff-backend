@@ -8,7 +8,7 @@ import {
 } from "../src/services/email-templates.js";
 import { sendMail, emailConfigured } from "../src/services/email.js";
 import { emailVerificationQueries } from "../src/queries/email-verification.queries.js";
-import { toPositional } from "../src/pg-support.js";
+import { toPositional } from "../src/db/pg-support.js";
 
 const render = (key, name, extra = {}, options) =>
   renderEmail(
@@ -66,7 +66,7 @@ test("reminder query binds all placeholders", () => {
   assert.ok(!sql.includes("?"));
 });
 
-import { passwordProblem } from "../src/password-strength.js";
+import { passwordProblem } from "../src/utils/password-strength.js";
 test("password strength rules", () => {
   const who = { email: "ann.lee@mail.com", name: "Ann Lee" };
   assert.ok(passwordProblem("alllowercaseletters", who));

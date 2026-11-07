@@ -1,4 +1,4 @@
-# LayoffCircle backend
+# LaidOffCircle backend
 
 Node.js 22+, Express 5, and PostgreSQL REST API for the `laidoff-web` app. The frontend now uses the API for authentication. Feature screens now use the authenticated frontend server proxy for API reads and writes.
 
@@ -58,7 +58,7 @@ See [API.md](API.md) for endpoints, request examples, and frontend mapping.
 
 ## Database and security
 
-All tables use InnoDB with foreign keys and appropriate uniqueness constraints. User-controlled query values use bound `pg` parameters (query files keep `?` placeholders; `src/pg-support.js` converts them to `$1…`); pagination and resource IDs are validated. Passwords use salted scrypt hashes. Sessions use random bearer tokens; only SHA-256 token hashes are stored in PostgreSQL. Tokens expire after `SESSION_DAYS` and are revoked on logout, retaining their lifecycle history.
+All tables use InnoDB with foreign keys and appropriate uniqueness constraints. User-controlled query values use bound `pg` parameters (query files keep `?` placeholders; `src/db/pg-support.js` converts them to `$1…`); pagination and resource IDs are validated. Passwords use salted scrypt hashes. Sessions use random bearer tokens; only SHA-256 token hashes are stored in PostgreSQL. Tokens expire after `SESSION_DAYS` and are revoked on logout, retaining their lifecycle history.
 
 Auth and API requests are rate limited. CORS defaults to the local Next.js app; configure exact allowed origins with `CORS_ORIGINS`. Requests need an `Authorization: Bearer <token>` header. Keep tokens in memory or a server-managed session integration when connecting the frontend; the API does not use browser cookies. Use HTTPS when deployed. Configure `TRUST_PROXY=true` only behind a trusted, single-hop reverse proxy. Rate limits are process-local; multiple API instances need a shared limiter store.
 
@@ -92,8 +92,8 @@ Use the same host, port, and credentials as your test database. The tests cover 
 
 - `src/routes/`: feature APIs and request validation.
 - `src/queries/`: named SQL statements and guarded query builders, organized by feature. Routes, authentication, logging, and scripts import SQL from these files; values remain bound parameters.
-- `src/auth.js`, `src/security.js`: session authentication and password/token handling.
-- `src/db.js`: database pool and transactions.
+- `src/middleware/auth.js`, `src/utils/security.js`: session authentication and password/token handling.
+- `src/db/db.js`: database pool and transactions.
 - `src/app.js`: HTTP middleware, routing, and structured errors.
 - `migrations/`: versioned PostgreSQL schema.
 - `database/mysql-legacy/`: the former MySQL migrations, kept for reference and the data copy.

@@ -1,7 +1,7 @@
 import { authenticationQueries } from "../queries/authentication.queries.js";
-import { config } from "../config.js";
-import { query } from "../db.js";
-import { newToken, tokenHash } from "../security.js";
+import { config } from "../config/config.js";
+import { query } from "../db/db.js";
+import { newToken, tokenHash } from "../utils/security.js";
 export async function createSession(
   userId,
   req,

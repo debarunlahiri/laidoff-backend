@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { query, transaction } from "../db.js";
-import { applicationLog } from "../logger.js";
-import { HttpError } from "../http.js";
-import { newToken, tokenHash } from "../security.js";
+import { query, transaction } from "../db/db.js";
+import { applicationLog } from "../utils/logger.js";
+import { HttpError } from "../utils/http.js";
+import { newToken, tokenHash } from "../utils/security.js";
 import { emailVerificationQueries as sql } from "../queries/email-verification.queries.js";
 import { sendMail, emailConfigured } from "./email.js";
 import { buildEmail } from "./email-templates.js";
