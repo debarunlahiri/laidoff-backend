@@ -68,24 +68,37 @@ export async function signInWithGoogleIdentity(identity, req) {
         [identity.email],
         connection,
       );
-      if (collision)
-        throw new HttpError(
-          409,
-          "This email already has an account. Sign in with your password, then link Google from your account menu.",
+      if (collision) {
+        // Google has verified this email (checked upstream), so the person
+        // signing in owns the address: link instead of asking them to do it.
+        if (collision.accountStatus !== "active")
+          throw new HttpError(403, "This account is not active");
+        // A password set on a never-verified account may belong to whoever
+        // registered the address first, so drop it; they can reset it later.
+        if (!collision.emailVerifiedAt)
+          await query(sql.clearPassword, [collision.id], connection);
+        await query(sql.verifyEmail, [collision.id], connection);
+        user = {
+          id: collision.id,
+          email: collision.email,
+          name: collision.name,
+        };
+        identityId = await insertIdentity(identity, user.id, connection);
+      } else {
+        user = {
+          id: randomUUID(),
+          email: identity.email,
+          name: identity.name,
+          profileImageUrl: identity.pictureUrl,
+        };
+        created = true;
+        await query(
+          sql.createGoogleUser,
+          [user.id, user.email, user.name, user.profileImageUrl],
+          connection,
         );
-      user = {
-        id: randomUUID(),
-        email: identity.email,
-        name: identity.name,
-        profileImageUrl: identity.pictureUrl,
-      };
-      created = true;
-      await query(
-        sql.createGoogleUser,
-        [user.id, user.email, user.name, user.profileImageUrl],
-        connection,
-      );
-      identityId = await insertIdentity(identity, user.id, connection);
+        identityId = await insertIdentity(identity, user.id, connection);
+      }
     }
     await query(authenticationQueries.recordLogin, [user.id], connection);
     return {

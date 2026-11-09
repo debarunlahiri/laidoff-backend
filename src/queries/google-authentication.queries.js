@@ -4,7 +4,7 @@ export const googleAuthenticationQueries = {
     FROM authentication_identities identity JOIN users ON users.id=identity.user_id
     WHERE identity.firebase_user_identifier=? OR (identity.provider_name='google.com' AND identity.provider_subject_identifier=?) FOR UPDATE`,
   findEmailAccount:
-    'SELECT id,email,full_name AS name,account_status AS "accountStatus" FROM users WHERE email=? FOR UPDATE',
+    'SELECT id,email,full_name AS name,account_status AS "accountStatus",email_verified_at AS "emailVerifiedAt" FROM users WHERE email=? FOR UPDATE',
   createGoogleUser:
     "INSERT INTO users(id,email,password_hash,full_name,professional_skills,profile_image_url,email_verified_at,last_login_at) VALUES(?,?,NULL,?,'[]',?,utc_now(),utc_now())",
   createIdentity:
@@ -14,6 +14,7 @@ export const googleAuthenticationQueries = {
   updateProfileImage: "UPDATE users SET profile_image_url=? WHERE id=?",
   verifyEmail:
     "UPDATE users SET email_verified_at=COALESCE(email_verified_at,utc_now()) WHERE id=?",
+  clearPassword: "UPDATE users SET password_hash=NULL WHERE id=?",
   listIdentities:
     "SELECT provider_name AS provider,verified_email_address AS email FROM authentication_identities WHERE user_id=?",
 };
