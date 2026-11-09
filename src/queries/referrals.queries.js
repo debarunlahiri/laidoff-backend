@@ -34,7 +34,7 @@ export const referralQueries = {
   findOwner: "SELECT user_id FROM referrals WHERE id=?",
   listRequests: ({ limit, offset }) => {
     assertPagination(limit, offset);
-    return `SELECT rr.user_id AS "userId",rr.request_status AS status,rr.request_message AS message,rr.request_answers AS answers,rr.created_at AS "createdAt",u.profile_image_url AS "profileImageUrl",u.full_name AS name,u.professional_headline AS role FROM referral_requests rr JOIN users u ON u.id=rr.user_id WHERE rr.referral_id=? ORDER BY rr.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+    return `SELECT rr.user_id AS "userId",rr.request_status AS status,rr.request_message AS message,rr.request_answers AS answers,rr.created_at AS "createdAt",u.profile_image_url AS "profileImageUrl",u.verified_badge AS badge,u.full_name AS name,u.professional_headline AS role FROM referral_requests rr JOIN users u ON u.id=rr.user_id WHERE rr.referral_id=? ORDER BY rr.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
   },
   lockOwner: "SELECT user_id FROM referrals WHERE id=? FOR UPDATE",
   updateRequestDecision:

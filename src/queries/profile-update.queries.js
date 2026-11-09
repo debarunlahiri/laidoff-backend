@@ -1,6 +1,7 @@
 export function buildProfileUpdateQuery(body, userId) {
   const map = {
     name: "full_name",
+    username: "username",
     role: "professional_headline",
     about: "biography",
     skills: "professional_skills",

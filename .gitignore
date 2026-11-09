@@ -1,20 +1,37 @@
+# Dependencies
 node_modules/
+
+# Environment (keep the examples)
 .env
 .env.*
 !.env.example
+!.env*.example
+
+# Uploads
 uploads/*
 !uploads/.gitkeep
-coverage/
-*.log
-.DS_Store
-
-.log-outbox/
-
-*service-account*.json
-firebase-adminsdk*.json
-
-# Firebase Admin credentials
-serviceAccountKey.json
 private-uploads/
 
-!.env*.example
+# Logs
+*.log
+.log-outbox/
+npm-debug.log*
+
+# Testing
+coverage/
+
+# Firebase / service account credentials
+*service-account*.json
+firebase-adminsdk*.json
+serviceAccountKey.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Keys and backups
+*.pem
+*.bak

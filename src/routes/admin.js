@@ -6,6 +6,7 @@ import { query } from "../db/db.js";
 import { HttpError, page, text, uuid } from "../utils/http.js";
 import { config } from "../config/config.js";
 import { adminQueries as sql } from "../queries/admin.queries.js";
+import { adminSupport } from "./support.js";
 import { adminConsole } from "./admin-console.js";
 import { emailConfigured, sendMail } from "../services/email.js";
 import {
@@ -49,6 +50,7 @@ admin.use(
   },
 );
 
+admin.use("/support", adminSupport);
 admin.use(adminConsole);
 
 const like = (value) => `%${value.replace(/[\\%_]/g, "\\$&")}%`;
@@ -226,6 +228,7 @@ admin.get("/users", async (req, res) => {
         .enum(["all", "active", "suspended", "deactivated"])
         .default("all"),
       role: z.enum(["all", "admin", "member"]).default("all"),
+      badge: z.enum(["all", "blue", "gold", "none"]).default("all"),
     })
     .parse(req.query);
   const conditions = [];
@@ -243,6 +246,11 @@ admin.get("/users", async (req, res) => {
   }
   if (filters.role !== "all")
     conditions.push(`is_admin=${filters.role === "admin"}`);
+  if (filters.badge === "none") conditions.push("verified_badge IS NULL");
+  else if (filters.badge !== "all") {
+    conditions.push("verified_badge=?");
+    params.push(filters.badge);
+  }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const [{ total }] = await query(sql.countUsers(where), params);
   res.json({
@@ -258,6 +266,7 @@ admin.patch("/users/:id", async (req, res) => {
       emailVerified: z.boolean(),
       accountStatus: z.enum(["active", "suspended", "deactivated"]),
       isAdmin: z.boolean(),
+      badge: z.enum(["blue", "gold"]).nullable(),
       reminderCount: z.number().int().min(0).max(32767),
     })
     .partial()
@@ -285,6 +294,8 @@ admin.patch("/users/:id", async (req, res) => {
     (assignments.push("account_status=?"), params.push(patch.accountStatus));
   if (patch.isAdmin !== undefined)
     (assignments.push("is_admin=?"), params.push(patch.isAdmin));
+  if (patch.badge !== undefined)
+    (assignments.push("verified_badge=?"), params.push(patch.badge));
   if (patch.reminderCount !== undefined)
     (assignments.push("verification_reminder_count=?"),
       params.push(patch.reminderCount));
@@ -310,4 +321,13 @@ admin.post("/users/:id/send-welcome", async (req, res) => {
   res.json({
     sent: await sendWelcomeEmail(user, Boolean(user.emailVerifiedAt)),
   });
+});
+// Permanently removes the user and all their content (cascade).
+admin.delete("/users/:id", async (req, res) => {
+  const id = uuid(req.params.id);
+  if (id === req.user.id)
+    throw new HttpError(400, "You can't delete your own account");
+  const result = await query("DELETE FROM users WHERE id=?", [id]);
+  if (!result.affectedRows) throw new HttpError(404, "User not found");
+  res.json({ deleted: true });
 });

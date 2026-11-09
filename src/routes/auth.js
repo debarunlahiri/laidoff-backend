@@ -14,6 +14,7 @@ import { query, transaction } from "../db/db.js";
 import { hashPassword, verifyPassword } from "../utils/security.js";
 import { authenticate } from "../middleware/auth.js";
 import { HttpError, text } from "../utils/http.js";
+import { usernameSchema, assertUsernameFree } from "../utils/username.js";
 import { passwordProblem } from "../utils/password-strength.js";
 import { verificationInfo } from "../middleware/verification-gate.js";
 import {
@@ -34,7 +35,10 @@ export function createAuthenticationRouter({
     password: z.string().min(12).max(128),
   });
   auth.post("/register", async (req, res) => {
-    const body = credentials.extend({ name: text(100) }).parse(req.body);
+    const body = credentials
+      .extend({ name: text(100), username: usernameSchema })
+      .parse(req.body);
+    await assertUsernameFree(body.username);
     const weak = passwordProblem(body.password, body);
     if (weak) throw new HttpError(400, weak);
     const userId = randomUUID();
@@ -42,7 +46,7 @@ export function createAuthenticationRouter({
     const result = await transaction(async (c) => {
       await query(
         authenticationQueries.createUser,
-        [userId, body.email, passwordHash, body.name, "[]"],
+        [userId, body.email, passwordHash, body.name, "[]", body.username],
         c,
       );
       return createSession(userId, req, c);
@@ -56,6 +60,7 @@ export function createAuthenticationRouter({
         id: userId,
         email: body.email,
         name: body.name,
+        username: body.username,
         ...(await verificationInfo({
           emailVerified: false,
           createdAt: new Date(),

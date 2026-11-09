@@ -14,10 +14,11 @@ export const peopleQueries = {
   },
   searchPeople: ({ limit, offset }) => {
     assertPagination(limit, offset);
-    return `SELECT u.id,u.full_name AS name,u.professional_headline AS role,u.open_to_work AS "openToWork",u.profile_image_url AS "profileImageUrl",u.cover_image_url AS "coverImageUrl", EXISTS(SELECT 1 FROM follows f WHERE f.follower_id=? AND f.followed_id=u.id) AS following FROM users u WHERE u.account_status='active' AND u.id IS DISTINCT FROM ? AND (u.full_name ILIKE ? OR u.professional_headline ILIKE ?) ORDER BY u.full_name LIMIT ${limit} OFFSET ${offset}`;
+    return `SELECT u.id,u.full_name AS name,u.username,u.professional_headline AS role,u.open_to_work AS "openToWork",u.profile_image_url AS "profileImageUrl",u.verified_badge AS badge,u.cover_image_url AS "coverImageUrl", EXISTS(SELECT 1 FROM follows f WHERE f.follower_id=? AND f.followed_id=u.id) AS following FROM users u WHERE u.account_status='active' AND u.id IS DISTINCT FROM ? AND (u.full_name ILIKE ? OR u.professional_headline ILIKE ? OR u.username ILIKE ?) ORDER BY u.full_name LIMIT ${limit} OFFSET ${offset}`;
   },
+  findIdByUsername: "SELECT id FROM users WHERE lower(username)=? AND account_status='active'",
   findPublicProfile:
-    'SELECT id,full_name AS name,professional_headline AS role,biography AS about,professional_skills AS skills,career_objective AS "nextChapter",open_to_work AS "openToWork",profile_location AS location,profile_image_url AS "profileImageUrl",cover_image_url AS "coverImageUrl",website_url AS "websiteUrl",linkedin_profile_url AS "linkedinProfileUrl" FROM users WHERE id=?',
+    'SELECT id,full_name AS name,username,professional_headline AS role,biography AS about,professional_skills AS skills,career_objective AS "nextChapter",open_to_work AS "openToWork",profile_location AS location,profile_image_url AS "profileImageUrl",cover_image_url AS "coverImageUrl",website_url AS "websiteUrl",linkedin_profile_url AS "linkedinProfileUrl" FROM users WHERE id=?',
   // Public activity totals. Anonymous posts are excluded so they stay unlinked.
   userActivityStats: `SELECT
     (SELECT COUNT(*) FROM posts p WHERE p.user_id=? AND p.is_anonymous=FALSE) AS posts,
@@ -31,23 +32,27 @@ export const peopleQueries = {
     (SELECT COUNT(*) FROM connections c WHERE (c.requester_id=? OR c.recipient_id=?) AND c.connection_status='accepted') AS connections`,
   listFollowers: ({ limit, offset }) => {
     assertPagination(limit, offset);
-    return `SELECT u.id,u.full_name AS name,u.professional_headline AS role,u.profile_image_url AS "profileImageUrl",u.open_to_work AS "openToWork",f.created_at AS since FROM follows f JOIN users u ON u.id=f.follower_id WHERE f.followed_id=? AND u.account_status='active' ORDER BY f.created_at DESC,u.id LIMIT ${limit} OFFSET ${offset}`;
+    return `SELECT u.id,u.full_name AS name,u.username,u.professional_headline AS role,u.profile_image_url AS "profileImageUrl",u.verified_badge AS badge,u.open_to_work AS "openToWork",f.created_at AS since FROM follows f JOIN users u ON u.id=f.follower_id WHERE f.followed_id=? AND u.account_status='active' ORDER BY f.created_at DESC,u.id LIMIT ${limit} OFFSET ${offset}`;
+  },
+  listFollowing: ({ limit, offset }) => {
+    assertPagination(limit, offset);
+    return `SELECT u.id,u.full_name AS name,u.username,u.professional_headline AS role,u.profile_image_url AS "profileImageUrl",u.verified_badge AS badge,u.open_to_work AS "openToWork",f.created_at AS since FROM follows f JOIN users u ON u.id=f.followed_id WHERE f.follower_id=? AND u.account_status='active' ORDER BY f.created_at DESC,u.id LIMIT ${limit} OFFSET ${offset}`;
   },
   listAcceptedConnections: ({ limit, offset }) => {
     assertPagination(limit, offset);
-    return `SELECT u.id,u.full_name AS name,u.professional_headline AS role,u.profile_image_url AS "profileImageUrl",u.open_to_work AS "openToWork",c.accepted_at AS since FROM connections c JOIN users u ON u.id=CASE WHEN c.requester_id=? THEN c.recipient_id ELSE c.requester_id END WHERE (c.requester_id=? OR c.recipient_id=?) AND c.connection_status='accepted' AND u.account_status='active' ORDER BY c.accepted_at DESC,u.id LIMIT ${limit} OFFSET ${offset}`;
+    return `SELECT u.id,u.full_name AS name,u.username,u.professional_headline AS role,u.profile_image_url AS "profileImageUrl",u.verified_badge AS badge,u.open_to_work AS "openToWork",c.accepted_at AS since FROM connections c JOIN users u ON u.id=CASE WHEN c.requester_id=? THEN c.recipient_id ELSE c.requester_id END WHERE (c.requester_id=? OR c.recipient_id=?) AND c.connection_status='accepted' AND u.account_status='active' ORDER BY c.accepted_at DESC,u.id LIMIT ${limit} OFFSET ${offset}`;
   },
   // Who reacted to this member's public posts. Anonymous posts are never listed.
   listReactionsReceived: ({ limit, offset }) => {
     assertPagination(limit, offset);
-    return `SELECT u.id,u.full_name AS name,u.professional_headline AS role,u.profile_image_url AS "profileImageUrl",r.post_id AS "postId",LEFT(p.post_content,140) AS "postPreview",r.created_at AS "reactedAt" FROM reactions r JOIN posts p ON p.id=r.post_id JOIN users u ON u.id=r.user_id WHERE p.user_id=? AND p.is_anonymous=FALSE AND r.reaction_type=? AND u.account_status='active' ORDER BY r.created_at DESC,r.post_id LIMIT ${limit} OFFSET ${offset}`;
+    return `SELECT u.id,u.full_name AS name,u.username,u.professional_headline AS role,u.profile_image_url AS "profileImageUrl",u.verified_badge AS badge,r.post_id AS "postId",LEFT(p.post_content,140) AS "postPreview",r.created_at AS "reactedAt" FROM reactions r JOIN posts p ON p.id=r.post_id JOIN users u ON u.id=r.user_id WHERE p.user_id=? AND p.is_anonymous=FALSE AND r.reaction_type=? AND u.account_status='active' ORDER BY r.created_at DESC,r.post_id LIMIT ${limit} OFFSET ${offset}`;
   },
   createFollow:
     "INSERT INTO follows(follower_id,followed_id) VALUES(?,?) ON CONFLICT DO NOTHING",
   deleteFollow: "DELETE FROM follows WHERE follower_id=? AND followed_id=?",
   listConnections: ({ limit, offset }) => {
     assertPagination(limit, offset);
-    return `SELECT c.*,c.connection_status AS status,u.full_name AS name,u.professional_headline AS role,u.profile_image_url AS "profileImageUrl" FROM connections c JOIN users u ON u.id=CASE WHEN c.requester_id=? THEN c.recipient_id ELSE c.requester_id END WHERE c.requester_id=? OR c.recipient_id=? ORDER BY c.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+    return `SELECT c.*,c.connection_status AS status,u.full_name AS name,u.username,u.professional_headline AS role,u.profile_image_url AS "profileImageUrl",u.verified_badge AS badge FROM connections c JOIN users u ON u.id=CASE WHEN c.requester_id=? THEN c.recipient_id ELSE c.requester_id END WHERE c.requester_id=? OR c.recipient_id=? ORDER BY c.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
   },
   findConnectionByPair:
     "SELECT *,connection_status AS status FROM connections WHERE participant_pair_key=?",

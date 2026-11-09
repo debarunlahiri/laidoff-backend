@@ -4,8 +4,10 @@ import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { query, transaction } from "../db/db.js";
-import { HttpError, page, text, uuid, mustExist } from "../utils/http.js";
+import { HttpError, id, page, text, uuid, mustExist } from "../utils/http.js";
 import { notify } from "../services/notifications.js";
+import { getPrivacy, savePrivacy, privacySchema, canView } from "../services/privacy.js";
+import { usernameSchema, usernameProblem, assertUsernameFree } from "../utils/username.js";
 export const people = Router();
 people.get("/companies/:id", async (req, res) => {
   const [company] = await query(peopleQueries.findCompany, [
@@ -68,40 +70,104 @@ people.get("/users", async (req, res) => {
       req.user.id,
       "%" + search + "%",
       "%" + search + "%",
+      "%" + search + "%",
     ]),
   );
 });
+people.get("/users/username-available", async (req, res) => {
+  const username = usernameSchema.safeParse(req.query.username ?? "");
+  if (!username.success)
+    return res.json({ available: false, reason: username.error.issues[0].message });
+  const reason = await usernameProblem(username.data, req.user?.id ?? null);
+  res.json({ available: !reason, ...(reason ? { reason } : {}) });
+});
+// 403 unless the member's privacy setting for `key` (and their profile setting) lets the viewer in.
+export async function requireVisible(req, ownerId, key) {
+  const privacy = await getPrivacy(ownerId);
+  if (
+    !(await canView(req.user, ownerId, privacy.profile)) ||
+    !(await canView(req.user, ownerId, privacy[key]))
+  )
+    throw new HttpError(403, "This member keeps that private", "PRIVATE");
+}
+people.get("/me/privacy", async (req, res) => {
+  res.json(await getPrivacy(req.user.id));
+});
+people.put("/me/privacy", async (req, res) => {
+  const patch = privacySchema.parse(req.body);
+  res.json(await savePrivacy(req.user.id, patch));
+});
+// The path segment is a member id (UUID) or an @username.
+const memberId = async (value) => {
+  if (id.safeParse(value).success) return value;
+  const name = usernameSchema.safeParse(decodeURIComponent(value));
+  if (!name.success) throw new HttpError(404, "User not found");
+  const [row] = await query(peopleQueries.findIdByUsername, [name.data]);
+  if (!row) throw new HttpError(404, "User not found");
+  return row.id;
+};
 people.get("/users/:id", async (req, res) => {
   const rows = await query(peopleQueries.findPublicProfile, [
-    uuid(req.params.id),
+    await memberId(req.params.id),
   ]);
   if (!rows.length) throw new HttpError(404, "User not found");
+  const privacy = await getPrivacy(rows[0].id);
+  if (!(await canView(req.user, rows[0].id, privacy.profile))) {
+    const { id, name, username, profileImageUrl } = rows[0];
+    return res.json({ id, name, username, profileImageUrl, restricted: true, restrictedTo: privacy.profile });
+  }
   res.json(rows[0]);
 });
 people.get("/users/:id/stats", async (req, res) => {
-  const id = uuid(req.params.id);
+  const id = await memberId(req.params.id);
   const rows = await query(peopleQueries.findPublicProfile, [id]);
   if (!rows.length) throw new HttpError(404, "User not found");
   const [stats] = await query(
     peopleQueries.userActivityStats,
     Array(10).fill(id),
   );
-  res.json(
-    Object.fromEntries(
-      Object.entries(stats).map(([key, value]) => [key, Number(value)]),
+  const privacy = await getPrivacy(id);
+  const allowed = async (key) => canView(req.user, id, privacy[key]);
+  const profileOpen = await allowed("profile");
+  const hide = {
+    posts: !profileOpen,
+    likesReceived: !profileOpen || !(await allowed("likes")),
+    dislikesReceived: !profileOpen || !(await allowed("dislikes")),
+    referrals: !profileOpen || !(await allowed("referrals")),
+    openReferrals: !profileOpen || !(await allowed("referrals")),
+    followers: !profileOpen || !(await allowed("followers")),
+    following: !profileOpen || !(await allowed("following")),
+    connections: !profileOpen || !(await allowed("connections")),
+  };
+  res.json({
+    ...Object.fromEntries(
+      Object.entries(stats).map(([key, value]) => [
+        key,
+        hide[key] ? null : Number(value),
+      ]),
     ),
-  );
+    hidden: Object.keys(hide).filter((key) => hide[key]),
+  });
 });
 people.get("/users/:id/followers", async (req, res) => {
   const id = uuid(req.params.id);
   const { limit, offset } = page(req);
   await mustExist(query, "users", id);
+  await requireVisible(req, id, "followers");
   res.json(await query(peopleQueries.listFollowers({ limit, offset }), [id]));
+});
+people.get("/users/:id/following", async (req, res) => {
+  const id = uuid(req.params.id);
+  const { limit, offset } = page(req);
+  await mustExist(query, "users", id);
+  await requireVisible(req, id, "following");
+  res.json(await query(peopleQueries.listFollowing({ limit, offset }), [id]));
 });
 people.get("/users/:id/connections", async (req, res) => {
   const id = uuid(req.params.id);
   const { limit, offset } = page(req);
   await mustExist(query, "users", id);
+  await requireVisible(req, id, "connections");
   res.json(
     await query(peopleQueries.listAcceptedConnections({ limit, offset }), [
       id,
@@ -158,6 +224,7 @@ people.patch("/me", async (req, res) => {
   const body = z
     .object({
       name: text(100),
+      username: usernameSchema,
       role: z.string().trim().max(160),
       about: z.string().max(5000),
       skills: z.array(text(80)).max(30),
@@ -180,6 +247,7 @@ people.patch("/me", async (req, res) => {
     .parse(req.body);
   if (!Object.keys(body).length)
     throw new HttpError(400, "No profile fields supplied");
+  if (body.username) await assertUsernameFree(body.username, req.user.id);
   const profileQuery = buildProfileUpdateQuery(body, req.user.id);
   await query(profileQuery.sql, profileQuery.params);
   res.json({ updated: true });
@@ -211,6 +279,12 @@ people.post("/connections", async (req, res) => {
     throw new HttpError(400, "Cannot connect to yourself");
   const result = await transaction(async (c) => {
     await mustExist(query, "users", userId, c);
+    if ((await getPrivacy(userId, c)).connect === "only_me")
+      throw new HttpError(
+        403,
+        "This member isn't accepting connection requests",
+        "PRIVATE",
+      );
     const pair = [req.user.id, userId].sort().join(":");
     const existing = await query(peopleQueries.findConnectionByPair, [pair], c);
     if (existing.length) return existing[0];

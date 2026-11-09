@@ -43,7 +43,7 @@ export const adminConsoleQueries = {
   dbFailures:
     "SELECT count(*)::int AS total FROM database_query_logs WHERE was_successful=false AND started_at>=utc_now()-interval '24 hours'",
 
-  userDetail: `SELECT u.id,u.email,u.full_name AS name,u.professional_headline AS headline,u.profile_location AS location,u.profile_image_url AS "profileImageUrl",u.is_admin AS "isAdmin",u.email_verified_at AS "emailVerifiedAt",u.account_status AS "accountStatus",u.created_at AS "createdAt",u.last_login_at AS "lastLoginAt",u.open_to_work AS "openToWork",
+  userDetail: `SELECT u.id,u.email,u.full_name AS name,u.professional_headline AS headline,u.profile_location AS location,u.profile_image_url AS "profileImageUrl",u.verified_badge AS badge,u.is_admin AS "isAdmin",u.email_verified_at AS "emailVerifiedAt",u.account_status AS "accountStatus",u.created_at AS "createdAt",u.last_login_at AS "lastLoginAt",u.open_to_work AS "openToWork",
     (SELECT count(*)::int FROM posts WHERE user_id=u.id) AS posts,
     (SELECT count(*)::int FROM comments WHERE user_id=u.id) AS comments,
     (SELECT count(*)::int FROM referrals WHERE user_id=u.id) AS referrals,

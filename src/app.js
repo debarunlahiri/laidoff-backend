@@ -22,6 +22,7 @@ import { insights } from "./routes/insights.js";
 import { uploads } from "./routes/uploads.js";
 import { search } from "./routes/search.js";
 import { admin } from "./routes/admin.js";
+import { support } from "./routes/support.js";
 import { enforceVerification } from "./middleware/verification-gate.js";
 import { cacheResponses } from "./middleware/response-cache.js";
 export function createApp({ verifyGoogle } = {}) {
@@ -81,7 +82,7 @@ export function createApp({ verifyGoogle } = {}) {
   app.use("/api/v1", async (req, res, next) => {
     const publicRead =
       req.method === "GET" &&
-      /^(\/daily-reminder|\/search|\/posts(?:\/topics|\/topic-options|\/[a-zA-Z0-9-]+(?:\/comments)?)?|\/referrals|\/companies(?:\/[a-zA-Z0-9-]+)?|\/users(?:\/[a-zA-Z0-9-]+(?:\/stats)?)?|\/insights(?:\/[-a-zA-Z0-9_]+)*)\/?$/.test(
+      /^(\/daily-reminder|\/search|\/posts(?:\/topics|\/topic-options|\/[a-zA-Z0-9-]+(?:\/comments)?)?|\/referrals|\/companies(?:\/[a-zA-Z0-9-]+)?|\/users(?:\/[a-zA-Z0-9_-]+(?:\/stats)?)?|\/insights(?:\/[-a-zA-Z0-9_]+)*)\/?$/.test(
         req.path,
       );
     if (publicRead && !req.headers.authorization) {
@@ -110,6 +111,7 @@ export function createApp({ verifyGoogle } = {}) {
     res.json(rows[Math.floor(Date.now() / 86400000) % rows.length]);
   });
   app.use("/api/v1/admin", admin);
+  app.use("/api/v1/support", support);
   app.use("/api/v1", people);
   app.use("/api/v1/posts", posts);
   app.use("/api/v1/referrals", referrals);

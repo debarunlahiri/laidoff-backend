@@ -8,7 +8,7 @@ export const applicationQueries = {
   listNotifications: ({ limit, offset }) => {
     assertPagination(limit, offset);
     return `SELECT n.id,n.notification_type AS type,n.resource_id AS "resourceId",n.notification_message AS text,n.read_at AS "readAt",n.created_at AS "createdAt",
-      a.id AS "actorId",a.full_name AS "actorName",a.professional_headline AS "actorHeadline",a.profile_image_url AS "actorImageUrl",
+      a.id AS "actorId",a.full_name AS "actorName",a.professional_headline AS "actorHeadline",a.profile_image_url AS "actorImageUrl",a.verified_badge AS "actorBadge",
       CASE
         WHEN n.notification_type='message' THEN (SELECT LEFT(CASE WHEN m.message_content='' THEN 'Sent an attachment' ELSE m.message_content END,160) FROM messages m WHERE m.conversation_id=n.resource_id AND m.sender_id=n.actor_id ORDER BY m.created_at DESC LIMIT 1)
         WHEN n.notification_type IN ('like','comment') THEN (SELECT LEFT(p.post_content,160) FROM posts p WHERE p.id=n.resource_id)

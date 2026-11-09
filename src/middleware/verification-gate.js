@@ -32,6 +32,8 @@ export async function verificationInfo({ emailVerified, createdAt, isAdmin }) {
 export async function enforceVerification(req) {
   const user = req.user;
   if (!user?.id) return;
+  // Account help remains available even when email verification has expired.
+  if (/^\/support(?:\/|$)/.test(req.path ?? "")) return;
   const info = await verificationInfo(user);
   if (!info.verificationRequired) return;
   if (info.verificationExpired)

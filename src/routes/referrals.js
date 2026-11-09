@@ -1,3 +1,4 @@
+import { getPrivacy, canView } from "../services/privacy.js";
 import { referralQueries } from "../queries/referrals.queries.js";
 import {
   buildReferralListQuery,
@@ -53,6 +54,14 @@ referrals.get("/", async (req, res) => {
   if (filters.id) filters.status = "all";
   if (!req.user.id && filters.view !== "all")
     throw new HttpError(401, "Sign in to use this filter");
+  if (filters.authorId && filters.authorId !== req.user.id) {
+    const privacy = await getPrivacy(filters.authorId);
+    if (
+      !(await canView(req.user, filters.authorId, privacy.profile)) ||
+      !(await canView(req.user, filters.authorId, privacy.referrals))
+    )
+      throw new HttpError(403, "This member keeps their referrals private", "PRIVATE");
+  }
   const referralQuery = buildReferralListQuery({
     filters,
     userId: req.user.id,

@@ -129,6 +129,7 @@ adminManage.post("/users", async (req, res) => {
       location: optionalText(160),
       openToWork: z.boolean().default(false),
       isAdmin: z.boolean().default(false),
+      badge: z.enum(["blue", "gold"]).nullable().default(null),
       emailVerified: z.boolean().default(true),
       accountStatus: z.enum(["active", "suspended", "deactivated"]).default("active"),
     })
@@ -139,9 +140,9 @@ adminManage.post("/users", async (req, res) => {
   if (exists) throw new HttpError(409, "An account with this email already exists");
   const id = randomUUID();
   await query(
-    `INSERT INTO users(id,email,password_hash,full_name,professional_headline,profile_location,open_to_work,is_admin,account_status,professional_skills,email_verified_at)
-     VALUES(?,?,?,?,?,?,?,?,?,?,CASE WHEN ? THEN utc_now() ELSE NULL END)`,
-    [id, b.email, await hashPassword(b.password), b.name, b.headline, b.location, b.openToWork, b.isAdmin, b.accountStatus, "[]", b.emailVerified],
+    `INSERT INTO users(id,email,password_hash,full_name,professional_headline,profile_location,open_to_work,is_admin,account_status,professional_skills,verified_badge,email_verified_at)
+     VALUES(?,?,?,?,?,?,?,?,?,?,?,CASE WHEN ? THEN utc_now() ELSE NULL END)`,
+    [id, b.email, await hashPassword(b.password), b.name, b.headline, b.location, b.openToWork, b.isAdmin, b.accountStatus, "[]", b.badge, b.emailVerified],
   );
   res.status(201).json({ id, email: b.email, name: b.name });
 });

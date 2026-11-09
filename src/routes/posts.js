@@ -1,3 +1,4 @@
+import { getPrivacy, canView } from "../services/privacy.js";
 import { postQueries } from "../queries/posts.queries.js";
 import { buildPostFeedQuery } from "../queries/post-feed.queries.js";
 import { Router } from "express";
@@ -108,6 +109,11 @@ posts.get("/", async (req, res) => {
       sort: z.enum(["latest", "most-liked"]).default("latest"),
     })
     .parse(req.query);
+  if (filters.authorId && filters.authorId !== req.user.id) {
+    const privacy = await getPrivacy(filters.authorId);
+    if (!(await canView(req.user, filters.authorId, privacy.profile)))
+      throw new HttpError(403, "This profile is private", "PRIVATE");
+  }
   const feedQuery = buildPostFeedQuery({
     filters,
     userId: req.user.id,

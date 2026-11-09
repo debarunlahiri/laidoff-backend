@@ -1,7 +1,7 @@
 import { assertPagination, assertTable } from "./query-guards.js";
 
 // Viewer id is the first bind parameter (for myReaction); post id follows.
-const commentColumns = `c.id,c.parent_comment_id AS "parentId",c.comment_content AS text,c.created_at AS "createdAt",c.edited_at AS "editedAt",u.id AS "authorId",u.full_name AS name,u.profile_image_url AS "profileImageUrl",
+const commentColumns = `c.id,c.parent_comment_id AS "parentId",c.comment_content AS text,c.created_at AS "createdAt",c.edited_at AS "editedAt",u.id AS "authorId",u.full_name AS name,u.username,u.profile_image_url AS "profileImageUrl",u.verified_badge AS badge,
  (SELECT COUNT(*) FROM comment_reactions r WHERE r.comment_id=c.id AND r.reaction_type='like') AS likes,
  (SELECT COUNT(*) FROM comment_reactions r WHERE r.comment_id=c.id AND r.reaction_type='dislike') AS dislikes,
  (SELECT r.reaction_type FROM comment_reactions r WHERE r.comment_id=c.id AND r.user_id=?) AS "myReaction",
@@ -70,11 +70,11 @@ export const postQueries = {
   listEngagement: ({ type, limit, offset }) => {
     assertPagination(limit, offset);
     const person =
-      'u.id,u.full_name AS name,u.professional_headline AS role,u.profile_image_url AS "profileImageUrl"';
+      'u.id,u.full_name AS name,u.username,u.professional_headline AS role,u.profile_image_url AS "profileImageUrl",u.verified_badge AS badge';
     const sources = {
       likes: `SELECT ${person},r.created_at AS at,NULL AS count FROM reactions r JOIN users u ON u.id=r.user_id WHERE r.post_id=? AND r.reaction_type='like' ORDER BY r.created_at DESC`,
       dislikes: `SELECT ${person},r.created_at AS at,NULL AS count FROM reactions r JOIN users u ON u.id=r.user_id WHERE r.post_id=? AND r.reaction_type='dislike' ORDER BY r.created_at DESC`,
-      comments: `SELECT ${person},MAX(c.created_at) AS at,COUNT(*) AS count FROM comments c JOIN users u ON u.id=c.user_id WHERE c.post_id=? GROUP BY u.id,u.full_name,u.professional_headline,u.profile_image_url ORDER BY at DESC`,
+      comments: `SELECT ${person},MAX(c.created_at) AS at,COUNT(*) AS count FROM comments c JOIN users u ON u.id=c.user_id WHERE c.post_id=? GROUP BY u.id,u.full_name,u.professional_headline,u.profile_image_url,u.verified_badge ORDER BY at DESC`,
       shares: `SELECT ${person},s.created_at AS at,NULL AS count FROM post_shares s JOIN users u ON u.id=s.user_id WHERE s.post_id=? ORDER BY s.created_at DESC`,
       views: `SELECT ${person},v.last_viewed_at AS at,v.view_count AS count,v.first_viewed_at AS "firstViewedAt",v.device,v.source FROM post_views v JOIN users u ON u.id=v.user_id WHERE v.post_id=? ORDER BY v.last_viewed_at DESC`,
       reposts: `SELECT ${person},s.created_at AS at,NULL AS count FROM reposts s JOIN users u ON u.id=s.user_id WHERE s.post_id=? ORDER BY s.created_at DESC`,

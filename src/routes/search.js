@@ -55,6 +55,8 @@ search.get("/", async (req, res) => {
           viewer,
           nameContains,
           contains,
+          nameContains,
+          prefix,
           prefix,
         ])
       : [],

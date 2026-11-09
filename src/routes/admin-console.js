@@ -145,14 +145,16 @@ adminConsole.get("/posts/:id", async (req, res) => {
   const id = uuid(req.params.id);
   const [post] = await query(sql.postDetail, [id]);
   if (!post) throw new HttpError(404, "Post not found");
-  const [reports, comments, [warned], warnings] = await Promise.all([
+  const [reports, comments, [warned], warnings, [summary]] = await Promise.all([
     query(sql.postReports, [id]),
     query(sql.postComments, [id]),
     query(sql.warningCount, [post.authorId]),
     query(sql.userWarnings, [post.authorId]),
+    query(sql.listPosts("WHERE p.id=?"), [id, 1, 0]),
   ]);
   res.json({
     ...post,
+    summary,
     reports,
     comments,
     warningCount: warned?.total ?? 0,
