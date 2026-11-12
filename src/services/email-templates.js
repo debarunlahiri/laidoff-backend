@@ -185,7 +185,7 @@ function layout({ preheader, bodyHtml, footer }) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden">
 <tr><td style="background:${BRAND};padding:26px 36px">
-<div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.3px">LaidOffCircle</div>
+<div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.3px"><img src="${appUrl()}/email-icons/logo-white.png" width="30" height="30" alt="" style="display:inline-block;vertical-align:middle;margin:-4px 10px 0 0;border:0">LaidOffCircle</div>
 <div style="font-size:13px;color:#d6defa;margin-top:4px">Laid off, not disconnected.</div>
 </td></tr>
 <tr><td style="padding:36px 36px 32px;font-size:16px;line-height:1.65">${bodyHtml}</td></tr>
