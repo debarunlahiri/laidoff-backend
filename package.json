@@ -11,6 +11,7 @@
     "start": "node --env-file-if-exists=.env src/server.js",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.js",
     "admin:make": "node --env-file-if-exists=.env scripts/make-admin.js",
+    "agent:key": "node --env-file-if-exists=.env scripts/agent-key.js",
     "db:seed": "node --env-file-if-exists=.env scripts/seed.js",
     "db:seed:community": "node --env-file-if-exists=.env scripts/seed-community.js",
     "test": "node --import ./test/setup.js --test test/*.test.js",

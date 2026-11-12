@@ -23,6 +23,7 @@ import { uploads } from "./routes/uploads.js";
 import { search } from "./routes/search.js";
 import { admin } from "./routes/admin.js";
 import { support } from "./routes/support.js";
+import { agent } from "./routes/agent.js";
 import { enforceVerification } from "./middleware/verification-gate.js";
 import { cacheResponses } from "./middleware/response-cache.js";
 export function createApp({ verifyGoogle } = {}) {
@@ -42,6 +43,21 @@ export function createApp({ verifyGoogle } = {}) {
       allowedHeaders: ["Content-Type", "Authorization"],
       exposedHeaders: ["X-Request-Id"],
     }),
+  );
+  // Public agent API: keyed by API key instead of a member session, and it parses
+  // its own bodies so every error (even bad JSON) uses the { error: { code } } shape.
+  app.use(
+    "/api/v1/agent",
+    rateLimit({
+      windowMs: 60000,
+      limit: 120,
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+      message: {
+        error: { code: "RATE_LIMITED", message: "Too many requests" },
+      },
+    }),
+    agent,
   );
   app.use(express.json({ limit: "256kb" }));
   app.use(

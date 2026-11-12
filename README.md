@@ -72,6 +72,31 @@ Request/response, application/error, SQL execution, and mutation audit logs are 
 
 Migrations are applied in filename order, tracked by checksum, and protected by a database advisory lock. Each migration runs in a transaction, so a failed one rolls back completely. Never edit an applied migration; add a new one. Create the database before migration. The schema targets PostgreSQL 14+ and was verified on 16. The earlier MySQL migrations are kept in `database/mysql-legacy/`; to move existing data see the last section.
 
+## Production (AWS Lightsail, 24/7)
+
+Don't run `nodemon` in production: it is a dev tool and dies with your SSH
+session. Run the server under PM2, which restarts it on crashes and after
+reboots.
+
+```bash
+sudo npm install -g pm2          # once
+npm ci
+pm2 start npm --name laidoff-backend -- start
+pm2 startup                      # run the sudo command it prints, once
+pm2 save
+```
+
+Useful commands:
+
+```bash
+pm2 status
+pm2 logs laidoff-backend
+git pull && npm ci && pm2 restart laidoff-backend   # deploy
+```
+
+On small instances (512 MB / 1 GB) add a swap file, or the process can be
+killed for running out of memory.
+
 ## Tests
 
 ```sh

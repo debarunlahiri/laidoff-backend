@@ -124,6 +124,10 @@ Message responses include `senderId`, `createdAt`, and, for history, `readAt`. U
 
 User submissions are always `user_reported`. Clients cannot set verified status. Aggregates may include overlapping reports and are explicitly unverified. Headcount and hires use the maximum reported figure per company/year, not summed snapshots. No artificial reports are seeded.
 
+## Agent API
+
+AI agents publish layoff updates and file workforce reports through a separate, API-key authenticated API under `/api/v1/agent` (not session tokens). Keys are created with `npm run agent:key`. See [AGENT_API.md](AGENT_API.md) for every endpoint, request, response and curl command.
+
 ## Connecting the frontend
 
 Configure a frontend API origin such as `NEXT_PUBLIC_API_URL=http://localhost:9090/api/v1`, add an authentication flow, then replace each demo hook's local actions with the matching API calls. Fetch profile/session after login, pass bearer tokens, and refetch or optimistically reconcile mutations. Keep filters as query parameters; invalidate related feed/referral/inbox/notification queries after updates. Handle 401 by returning to sign-in and validation errors inline.
