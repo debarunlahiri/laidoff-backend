@@ -51,6 +51,7 @@ export const adminConsoleQueries = {
     (SELECT count(*)::int FROM reports r JOIN posts p ON p.id=r.post_id WHERE p.user_id=u.id) AS "reportsAgainst",
     (SELECT count(*)::int FROM sessions WHERE user_id=u.id AND revoked_at IS NULL AND expires_at>utc_now()) AS "activeSessions"
     FROM users u WHERE u.id=?`,
+  setPassword: "UPDATE users SET password_hash=? WHERE id=?",
   revokeSessions:
     "UPDATE sessions SET revoked_at=utc_now() WHERE user_id=? AND revoked_at IS NULL",
   userPosts: `SELECT id,left(post_content,160) AS excerpt,created_at AS "createdAt" FROM posts WHERE user_id=? ORDER BY created_at DESC LIMIT 5`,
@@ -78,14 +79,16 @@ export const adminConsoleQueries = {
     FROM posts p JOIN users u ON u.id=p.user_id WHERE p.id=?`,
   insertWarning:
     "INSERT INTO user_warnings(user_id,post_id,issued_by_user_id,warning_reason,warning_note,post_excerpt,warning_type) VALUES(?,?,?,?,?,?,?)",
-  warningCount: "SELECT count(*)::int AS total FROM user_warnings WHERE user_id=?",
+  warningCount:
+    "SELECT count(*)::int AS total FROM user_warnings WHERE user_id=?",
   userWarnings: `SELECT w.id,w.warning_reason AS reason,w.warning_type AS type,w.warning_note AS note,w.created_at AS "createdAt",w.post_id AS "postId",a.full_name AS "issuedBy"
     FROM user_warnings w LEFT JOIN users a ON a.id=w.issued_by_user_id WHERE w.user_id=? ORDER BY w.created_at DESC LIMIT 20`,
   postReports: `SELECT r.id,r.report_category AS category,r.report_reason AS reason,r.report_status AS status,r.resolution_summary AS "resolutionSummary",r.created_at AS "createdAt",ru.full_name AS "reporterName"
     FROM reports r JOIN users ru ON ru.id=r.user_id WHERE r.post_id=? ORDER BY r.created_at DESC LIMIT 50`,
   postComments: `SELECT c.id,c.comment_content AS text,c.parent_comment_id AS "parentId",c.created_at AS "createdAt",u.id AS "authorId",u.full_name AS "authorName"
     FROM comments c JOIN users u ON u.id=c.user_id WHERE c.post_id=? ORDER BY c.created_at DESC LIMIT 100`,
-  updatePostTopic: "UPDATE posts SET post_topic=?,updated_at=utc_now() WHERE id=?",
+  updatePostTopic:
+    "UPDATE posts SET post_topic=?,updated_at=utc_now() WHERE id=?",
   resolvePostReports:
     "UPDATE reports SET report_status=?,resolution_summary=?,reviewed_at=utc_now(),reviewed_by_user_id=? WHERE post_id=? AND report_status IN ('pending','reviewing')",
   deletePosts: "DELETE FROM posts WHERE id = ANY(?::uuid[])",
@@ -125,22 +128,20 @@ export const adminConsoleQueries = {
     (SELECT count(*)::int FROM referrals r WHERE r.company_id=c.id) AS referrals,
     (SELECT count(*)::int FROM workforce_reports w WHERE w.company_id=c.id) AS "layoffReports"
     FROM companies c LEFT JOIN users u ON u.id=c.created_by_user_id ${where} ORDER BY c.company_name LIMIT ? OFFSET ?`,
-  countCompanies: (where) => `SELECT count(*)::int AS total FROM companies c ${where}`,
+  countCompanies: (where) =>
+    `SELECT count(*)::int AS total FROM companies c ${where}`,
 
   // ---------- Hashtags ----------
-  topHashtags:
-    `SELECT tag,count(*)::int AS total,max(latest)::timestamptz AS "lastUsed" FROM (
+  topHashtags: `SELECT tag,count(*)::int AS total,max(latest)::timestamptz AS "lastUsed" FROM (
       SELECT lower(m[1]) AS tag, p.created_at AS latest
       FROM posts p, regexp_matches(p.post_content, '#([A-Za-z][A-Za-z0-9_]{1,49})', 'g') m
       WHERE p.created_at >= utc_now() - (?::int * interval '1 day')
     ) sub GROUP BY tag ORDER BY total DESC LIMIT ?`,
-  allTimeHashtags:
-    `SELECT tag,count(*)::int AS total FROM (
+  allTimeHashtags: `SELECT tag,count(*)::int AS total FROM (
       SELECT lower(m[1]) AS tag FROM posts p, regexp_matches(p.post_content, '#([A-Za-z][A-Za-z0-9_]{1,49})', 'g') m
     ) sub GROUP BY tag ORDER BY total DESC LIMIT ?`,
 
-  hashtagStats:
-    `SELECT count(*)::int AS posts,count(DISTINCT p.user_id)::int AS authors,
+  hashtagStats: `SELECT count(*)::int AS posts,count(DISTINCT p.user_id)::int AS authors,
     min(p.created_at) AS "firstUsed",max(p.created_at) AS "lastUsed",
     count(*) FILTER (WHERE p.created_at >= utc_now() - interval '7 days')::int AS "last7",
     COALESCE(sum((SELECT count(*) FROM reactions r WHERE r.post_id=p.id AND r.reaction_type='like')),0)::int AS likes,
@@ -155,8 +156,7 @@ export const adminConsoleQueries = {
     FROM referrals r JOIN companies c ON c.id=r.company_id JOIN users u ON u.id=r.user_id ${where} ORDER BY r.created_at DESC LIMIT ? OFFSET ?`,
   countReferrals: (where) =>
     `SELECT count(*)::int AS total FROM referrals r JOIN companies c ON c.id=r.company_id JOIN users u ON u.id=r.user_id ${where}`,
-  updateReferralStatus:
-    `UPDATE referrals SET referral_status=?,closed_at=CASE WHEN ?='closed' THEN utc_now() ELSE NULL END,updated_at=utc_now() WHERE id=? RETURNING id,referral_status AS status`,
+  updateReferralStatus: `UPDATE referrals SET referral_status=?,closed_at=CASE WHEN ?='closed' THEN utc_now() ELSE NULL END,updated_at=utc_now() WHERE id=? RETURNING id,referral_status AS status`,
 
   // ---------- Community notes ----------
   listNotes: (where) =>
@@ -167,8 +167,7 @@ export const adminConsoleQueries = {
     FROM community_notes n JOIN posts p ON p.id=n.post_id JOIN users u ON u.id=n.user_id LEFT JOIN users ru ON ru.id=n.reviewed_by_user_id ${where} ORDER BY n.created_at DESC LIMIT ? OFFSET ?`,
   countNotes: (where) =>
     `SELECT count(*)::int AS total FROM community_notes n ${where}`,
-  updateNote:
-    `UPDATE community_notes SET review_status=?,review_reason=?,reviewed_at=utc_now(),reviewed_by_user_id=? WHERE id=?`,
+  updateNote: `UPDATE community_notes SET review_status=?,review_reason=?,reviewed_at=utc_now(),reviewed_by_user_id=? WHERE id=?`,
   findNote: `SELECT id FROM community_notes WHERE id=?`,
 
   listAudit: (where) =>

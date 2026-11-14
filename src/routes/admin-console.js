@@ -7,8 +7,15 @@ import { escapeLike } from "../queries/query-guards.js";
 import { topics } from "./posts.js";
 import { adminManage } from "./admin-manage.js";
 import { emailConfigured, sendMail } from "../services/email.js";
-import { renderWarningEmail, warningReasons, warningTypes } from "../services/email-templates.js";
+import {
+  renderPasswordChangedEmail,
+  renderWarningEmail,
+  warningReasons,
+  warningTypes,
+} from "../services/email-templates.js";
 import { adminConsoleQueries as sql } from "../queries/admin-console.queries.js";
+import { hashPassword } from "../utils/security.js";
+import { passwordProblem } from "../utils/password-strength.js";
 
 // Mounted behind the administrator check in admin.js. Every mutation here is
 // also written to audit_logs by the request-logging middleware.
@@ -96,6 +103,50 @@ adminConsole.post("/users/:id/revoke-sessions", async (req, res) => {
   const result = await query(sql.revokeSessions, [id]);
   res.json({ revoked: result.affectedRows ?? 0 });
 });
+adminConsole.post("/users/:id/set-password", async (req, res) => {
+  const id = uuid(req.params.id);
+  if (id === req.user.id)
+    throw new HttpError(
+      400,
+      "Change your own password from your account settings",
+    );
+  const { password } = z
+    .object({
+      password: z
+        .string()
+        .min(12, "Password must be at least 12 characters")
+        .max(128, "Password must be at most 128 characters")
+        .refine(
+          (v) => v === v.trim(),
+          "Password cannot start or end with a space",
+        ),
+      confirmPassword: z.string(),
+    })
+    .strict()
+    .refine((v) => v.password === v.confirmPassword, {
+      message: "The two passwords do not match",
+      path: ["confirmPassword"],
+    })
+    .parse(req.body);
+  const [user] = await query(sql.userDetail, [id]);
+  if (!user) throw new HttpError(404, "User not found");
+  const weak = passwordProblem(password, {
+    email: user.email,
+    name: user.name,
+  });
+  if (weak) throw new HttpError(400, weak);
+  await query(sql.setPassword, [await hashPassword(password), id]);
+  // Anyone holding an old session must sign in again with the new password.
+  const result = await query(sql.revokeSessions, [id]);
+  // Tell the member. Mail trouble never fails the change (sendMail does not throw).
+  void sendMail({
+    to: user.email,
+    ...renderPasswordChangedEmail({ name: user.name, by: "admin" }),
+    template: "password_changed",
+    userId: id,
+  });
+  res.json({ updated: true, revoked: result.affectedRows ?? 0 });
+});
 
 // ---------- Content ----------
 adminConsole.get("/posts", async (req, res) => {
@@ -122,7 +173,9 @@ adminConsole.get("/posts", async (req, res) => {
     conditions.push("EXISTS (SELECT 1 FROM reports r WHERE r.post_id=p.id)");
   if (f.anonymous === "yes") conditions.push("p.is_anonymous=true");
   if (f.poll === "yes")
-    conditions.push("EXISTS (SELECT 1 FROM post_polls pp WHERE pp.post_id=p.id)");
+    conditions.push(
+      "EXISTS (SELECT 1 FROM post_polls pp WHERE pp.post_id=p.id)",
+    );
   if (f.topic?.trim()) {
     conditions.push("p.post_topic ILIKE ?");
     params.push(like(f.topic));
@@ -349,8 +402,14 @@ adminConsole.get("/hashtags", async (req, res) => {
     `SELECT tag,emoji,icon_name AS "iconName",accent_color AS "accentColor",display_name AS "displayName",is_featured AS featured FROM hashtag_catalog`,
   );
   const meta = new Map(catalog.map((c) => [c.tag, c]));
-  const decorate = (rows) => rows.map((r) => ({ ...r, ...(meta.get(r.tag) ?? {}) }));
-  res.json({ days, trending: decorate(trending), allTime: decorate(allTime), catalog });
+  const decorate = (rows) =>
+    rows.map((r) => ({ ...r, ...(meta.get(r.tag) ?? {}) }));
+  res.json({
+    days,
+    trending: decorate(trending),
+    allTime: decorate(allTime),
+    catalog,
+  });
 });
 
 adminConsole.get("/hashtags/:tag/posts", async (req, res) => {
@@ -381,9 +440,13 @@ adminConsole.get("/hashtags/:tag/posts", async (req, res) => {
     conditions.push("EXISTS (SELECT 1 FROM reports r WHERE r.post_id=p.id)");
   if (f.filter === "anonymous") conditions.push("p.is_anonymous=true");
   if (f.filter === "poll")
-    conditions.push("EXISTS (SELECT 1 FROM post_polls pp WHERE pp.post_id=p.id)");
+    conditions.push(
+      "EXISTS (SELECT 1 FROM post_polls pp WHERE pp.post_id=p.id)",
+    );
   if (f.filter === "images")
-    conditions.push("EXISTS (SELECT 1 FROM post_images pi WHERE pi.post_id=p.id)");
+    conditions.push(
+      "EXISTS (SELECT 1 FROM post_images pi WHERE pi.post_id=p.id)",
+    );
   const order = {
     newest: "p.created_at DESC",
     oldest: "p.created_at ASC",
@@ -415,7 +478,9 @@ adminConsole.get("/referrals", async (req, res) => {
   const conditions = [];
   const params = [];
   if (f.search?.trim()) {
-    conditions.push("(r.job_title ILIKE ? OR c.company_name ILIKE ? OR u.full_name ILIKE ?)");
+    conditions.push(
+      "(r.job_title ILIKE ? OR c.company_name ILIKE ? OR u.full_name ILIKE ?)",
+    );
     params.push(like(f.search), like(f.search), like(f.search));
   }
   if (f.status !== "all") {
@@ -424,11 +489,16 @@ adminConsole.get("/referrals", async (req, res) => {
   }
   const w = where(conditions);
   const [{ total }] = await query(sql.countReferrals(w), params);
-  res.json({ total, items: await query(sql.listReferrals(w), [...params, limit, offset]) });
+  res.json({
+    total,
+    items: await query(sql.listReferrals(w), [...params, limit, offset]),
+  });
 });
 adminConsole.patch("/referrals/:id", async (req, res) => {
   const id = uuid(req.params.id);
-  const { status } = z.object({ status: z.enum(["open", "closed"]) }).parse(req.body);
+  const { status } = z
+    .object({ status: z.enum(["open", "closed"]) })
+    .parse(req.body);
   const result = await query(sql.updateReferralStatus, [status, status, id]);
   if (!result.rows?.length && !result.affectedRows)
     throw new HttpError(404, "Referral not found");
@@ -440,7 +510,9 @@ adminConsole.get("/notes", async (req, res) => {
   const { limit, offset } = page(req);
   const f = z
     .object({
-      status: z.enum(["all", "pending", "approved", "rejected"]).default("pending"),
+      status: z
+        .enum(["all", "pending", "approved", "rejected"])
+        .default("pending"),
     })
     .parse(req.query);
   const conditions = [];
@@ -451,7 +523,10 @@ adminConsole.get("/notes", async (req, res) => {
   }
   const w = where(conditions);
   const [{ total }] = await query(sql.countNotes(w), params);
-  res.json({ total, items: await query(sql.listNotes(w), [...params, limit, offset]) });
+  res.json({
+    total,
+    items: await query(sql.listNotes(w), [...params, limit, offset]),
+  });
 });
 adminConsole.patch("/notes/:id", async (req, res) => {
   const id = uuid(req.params.id);
@@ -463,7 +538,12 @@ adminConsole.patch("/notes/:id", async (req, res) => {
     .parse(req.body);
   const [found] = await query(sql.findNote, [id]);
   if (!found) throw new HttpError(404, "Note not found");
-  await query(sql.updateNote, [body.status, body.reason ?? null, req.user.id, id]);
+  await query(sql.updateNote, [
+    body.status,
+    body.reason ?? null,
+    req.user.id,
+    id,
+  ]);
   res.json({ id, status: body.status });
 });
 

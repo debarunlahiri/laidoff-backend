@@ -48,7 +48,8 @@ export const templateMeta = {
 };
 export const defaultTemplates = {
   verification: {
-    subject: "{{firstName}}, confirm your email to finish joining LaidOffCircle",
+    subject:
+      "{{firstName}}, confirm your email to finish joining LaidOffCircle",
     preheader: "One click and your account is secured.",
     heading: "Confirm your email, {{firstName}}",
     intro:
@@ -363,12 +364,20 @@ export const warningTypes = {
   },
 };
 
-export function renderWarningEmail({ name, reason, excerpt, note, type = "warning" }) {
+export function renderWarningEmail({
+  name,
+  reason,
+  excerpt,
+  note,
+  type = "warning",
+}) {
   const kind = warningTypes[type] ?? warningTypes.warning;
   const info = warningReasons[reason] ?? warningReasons.other;
   const first = firstNameOf(name);
   const guidelines = `${appUrl()}/community-guidelines`;
-  const quote = String(excerpt ?? "").trim().slice(0, 280);
+  const quote = String(excerpt ?? "")
+    .trim()
+    .slice(0, 280);
   const subject = kind.subject;
   const html = layout({
     preheader: kind.preheader,
@@ -397,6 +406,45 @@ ${button("Read the community guidelines", guidelines)}
     `Community guidelines: ${guidelines}`,
     "",
     "Thank you for helping keep the circle a kind place,",
+    "The LaidOffCircle team",
+  ].join("\n");
+  return { subject, html, text };
+}
+
+// Security notice sent whenever a password changes. `by` is "user" (the member
+// changed it themselves) or "admin" (an administrator set a new one). The
+// password itself is never included.
+export function renderPasswordChangedEmail({ name, by = "user" }) {
+  const first = firstNameOf(name);
+  const byAdmin = by === "admin";
+  const subject = byAdmin
+    ? "An administrator changed your LaidOffCircle password"
+    : "Your LaidOffCircle password was changed";
+  const what = byAdmin
+    ? "A LaidOffCircle administrator set a new password for your account. You have been signed out on all devices."
+    : "The password for your LaidOffCircle account was just changed. Your other devices have been signed out.";
+  const next = byAdmin
+    ? "Sign in with the new password you were given. If you were not expecting this, reply to this email so we can look into it."
+    : "If this was you, there is nothing more to do. If it was not, reply to this email right away so we can secure your account.";
+  const when = `${new Date().toUTCString()}`;
+  const html = layout({
+    preheader: subject,
+    bodyHtml: `${h1(`Your password was changed, ${escapeHtml(first)}`)}
+<p style="margin:0 0 14px">${escapeHtml(what)}</p>
+<p style="margin:0 0 14px;color:${MUTED};font-size:14px">${escapeHtml(when)}</p>
+<p style="margin:0 0 14px">${escapeHtml(next)}</p>
+${button("Sign in", `${appUrl()}/login`)}
+<p style="margin:20px 0 0;color:${MUTED};font-size:14px">The LaidOffCircle team</p>`,
+  });
+  const text = [
+    `Your password was changed, ${first}`,
+    "",
+    what,
+    when,
+    "",
+    next,
+    `Sign in: ${appUrl()}/login`,
+    "",
     "The LaidOffCircle team",
   ].join("\n");
   return { subject, html, text };

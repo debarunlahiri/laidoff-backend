@@ -6,8 +6,21 @@ import { z } from "zod";
 import { query, transaction } from "../db/db.js";
 import { HttpError, id, page, text, uuid, mustExist } from "../utils/http.js";
 import { notify } from "../services/notifications.js";
-import { getPrivacy, savePrivacy, privacySchema, canView } from "../services/privacy.js";
-import { usernameSchema, usernameProblem, assertUsernameFree } from "../utils/username.js";
+import {
+  getPrivacy,
+  savePrivacy,
+  privacySchema,
+  canView,
+} from "../services/privacy.js";
+import { sendMail } from "../services/email.js";
+import { renderPasswordChangedEmail } from "../services/email-templates.js";
+import { hashPassword, verifyPassword } from "../utils/security.js";
+import { passwordProblem } from "../utils/password-strength.js";
+import {
+  usernameSchema,
+  usernameProblem,
+  assertUsernameFree,
+} from "../utils/username.js";
 export const people = Router();
 people.get("/companies/:id", async (req, res) => {
   const [company] = await query(peopleQueries.findCompany, [
@@ -35,7 +48,14 @@ people.post("/companies", async (req, res) => {
   const id = randomUUID();
   await query(
     "INSERT INTO companies(id,company_name,website_url,industry_name,headquarters_location,created_by_user_id) VALUES(?,?,?,?,?,?)",
-    [id, b.name, b.website || null, b.industry || null, b.headquarters || null, req.user.id],
+    [
+      id,
+      b.name,
+      b.website || null,
+      b.industry || null,
+      b.headquarters || null,
+      req.user.id,
+    ],
   );
   res.status(201).json({ id, name: b.name, existing: false });
 });
@@ -77,7 +97,10 @@ people.get("/users", async (req, res) => {
 people.get("/users/username-available", async (req, res) => {
   const username = usernameSchema.safeParse(req.query.username ?? "");
   if (!username.success)
-    return res.json({ available: false, reason: username.error.issues[0].message });
+    return res.json({
+      available: false,
+      reason: username.error.issues[0].message,
+    });
   const reason = await usernameProblem(username.data, req.user?.id ?? null);
   res.json({ available: !reason, ...(reason ? { reason } : {}) });
 });
@@ -90,6 +113,58 @@ export async function requireVisible(req, ownerId, key) {
   )
     throw new HttpError(403, "This member keeps that private", "PRIVATE");
 }
+// Change the signed-in member's own password. The current password is required,
+// and every other session is signed out (this one stays). A wrong current password
+// answers 400, not 401, so the app does not treat it as an expired session.
+people.put("/me/password", async (req, res) => {
+  const b = z
+    .strictObject({
+      currentPassword: z.string().min(1).max(128),
+      password: z
+        .string()
+        .min(12, "Password must be at least 12 characters")
+        .max(128, "Password must be at most 128 characters"),
+      confirmPassword: z.string().max(128),
+    })
+    .refine((v) => v.password === v.confirmPassword, {
+      message: "The two passwords do not match",
+      path: ["confirmPassword"],
+    })
+    .parse(req.body);
+  const [account] = await query(peopleQueries.findPasswordAccount, [
+    req.user.id,
+  ]);
+  if (!account?.password_hash)
+    throw new HttpError(
+      400,
+      "This account signs in with Google and has no password to change",
+    );
+  if (!(await verifyPassword(b.currentPassword, account.password_hash)))
+    throw new HttpError(400, "Your current password is incorrect");
+  if (b.password === b.currentPassword)
+    throw new HttpError(400, "Choose a password you have not used just now");
+  const weak = passwordProblem(b.password, {
+    email: account.email,
+    name: account.name,
+  });
+  if (weak) throw new HttpError(400, weak);
+  await query(peopleQueries.changePassword, [
+    await hashPassword(b.password),
+    req.user.id,
+  ]);
+  const result = await query(peopleQueries.revokeOtherSessions, [
+    req.user.id,
+    req.tokenHash,
+  ]);
+  // Tell the member. Mail trouble never fails the change (sendMail does not throw).
+  void sendMail({
+    to: account.email,
+    ...renderPasswordChangedEmail({ name: account.name, by: "user" }),
+    template: "password_changed",
+    userId: req.user.id,
+  });
+  res.json({ updated: true, otherSessionsSignedOut: result.affectedRows ?? 0 });
+});
 people.get("/me/privacy", async (req, res) => {
   res.json(await getPrivacy(req.user.id));
 });
@@ -114,7 +189,14 @@ people.get("/users/:id", async (req, res) => {
   const privacy = await getPrivacy(rows[0].id);
   if (!(await canView(req.user, rows[0].id, privacy.profile))) {
     const { id, name, username, profileImageUrl } = rows[0];
-    return res.json({ id, name, username, profileImageUrl, restricted: true, restrictedTo: privacy.profile });
+    return res.json({
+      id,
+      name,
+      username,
+      profileImageUrl,
+      restricted: true,
+      restrictedTo: privacy.profile,
+    });
   }
   res.json(rows[0]);
 });

@@ -1,6 +1,11 @@
 import { assertPagination } from "./query-guards.js";
 
 export const peopleQueries = {
+  findPasswordAccount:
+    "SELECT email,full_name AS name,password_hash FROM users WHERE id=?",
+  changePassword: "UPDATE users SET password_hash=? WHERE id=?",
+  revokeOtherSessions:
+    "UPDATE sessions SET revoked_at=utc_now() WHERE user_id=? AND token_hash<>? AND revoked_at IS NULL",
   findCompany:
     "SELECT id,company_name AS name FROM companies WHERE id=? AND is_active=TRUE",
   networkStats: `SELECT
@@ -16,7 +21,8 @@ export const peopleQueries = {
     assertPagination(limit, offset);
     return `SELECT u.id,u.full_name AS name,u.username,u.professional_headline AS role,u.open_to_work AS "openToWork",u.profile_image_url AS "profileImageUrl",u.verified_badge AS badge,u.cover_image_url AS "coverImageUrl", EXISTS(SELECT 1 FROM follows f WHERE f.follower_id=? AND f.followed_id=u.id) AS following FROM users u WHERE u.account_status='active' AND u.id IS DISTINCT FROM ? AND (u.full_name ILIKE ? OR u.professional_headline ILIKE ? OR u.username ILIKE ?) ORDER BY u.full_name LIMIT ${limit} OFFSET ${offset}`;
   },
-  findIdByUsername: "SELECT id FROM users WHERE lower(username)=? AND account_status='active'",
+  findIdByUsername:
+    "SELECT id FROM users WHERE lower(username)=? AND account_status='active'",
   findPublicProfile:
     'SELECT id,full_name AS name,username,professional_headline AS role,biography AS about,professional_skills AS skills,career_objective AS "nextChapter",open_to_work AS "openToWork",profile_location AS location,profile_image_url AS "profileImageUrl",cover_image_url AS "coverImageUrl",website_url AS "websiteUrl",linkedin_profile_url AS "linkedinProfileUrl" FROM users WHERE id=?',
   // Public activity totals. Anonymous posts are excluded so they stay unlinked.
