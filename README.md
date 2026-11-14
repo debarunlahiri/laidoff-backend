@@ -78,9 +78,12 @@ Don't run `nodemon` in production: it is a dev tool and dies with your SSH
 session. Run the server under PM2, which restarts it on crashes and after
 reboots.
 
+There is no build step: the server runs the source in `src/` directly.
+
 ```bash
 sudo npm install -g pm2          # once
 npm ci
+npm run db:migrate
 pm2 start npm --name laidoff-backend -- start
 pm2 startup                      # run the sudo command it prints, once
 pm2 save
@@ -91,11 +94,60 @@ Useful commands:
 ```bash
 pm2 status
 pm2 logs laidoff-backend
-git pull && npm ci && pm2 restart laidoff-backend   # deploy
+pm2 logs laidoff-backend --err --lines 100 --nostream
+```
+
+Deploy (apply new migrations before restarting, and pick up `.env` changes with `--update-env`):
+
+```bash
+git pull && npm ci && npm run db:migrate && pm2 restart laidoff-backend --update-env
+```
+
+Scripts such as `npm run admin:make` run from source, so one succeeding does not
+mean the running server has the new code. After pulling new code, always restart.
+
+Check the running server:
+
+```bash
+curl -i http://127.0.0.1:9090/health
+curl -i http://127.0.0.1:9090/ready
 ```
 
 On small instances (512 MB / 1 GB) add a swap file, or the process can be
 killed for running out of memory.
+
+### Admin accounts
+
+Make an existing member an admin (or revoke it with `--remove`). The account must already exist:
+
+```bash
+npm run admin:make -- you@example.com
+npm run admin:make -- you@example.com --remove
+```
+
+### Agent API keys
+
+Trusted AI agents publish through the [agent API](AGENT_API.md) with an API key.
+Keys publish as one member account, by default the official `news@laidoffcircle.com`.
+The key is shown once.
+
+```bash
+npm run agent:key -- create --name news-bot
+npm run agent:key -- create --name grok --account news@laidoffcircle.com --writes-per-hour 60
+npm run agent:key -- list
+npm run agent:key -- revoke <key-id>
+```
+
+Keys are stored per database, so create production keys on the production server.
+Revoking takes effect on the next request, with no restart.
+
+### Other database commands
+
+```bash
+npm run db:check              # check the referral columns and the referral list query (debugging GET /referrals 500s)
+npm run db:seed               # fictional seed data (refused in production)
+SEED_PASSWORD=... npm run db:seed:community   # fictional content for every user-facing table
+```
 
 ## Tests
 
