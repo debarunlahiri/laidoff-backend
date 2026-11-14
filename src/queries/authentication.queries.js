@@ -4,7 +4,7 @@ export const authenticationQueries = {
   createUser:
     "INSERT INTO users(id,email,password_hash,full_name,professional_skills,username) VALUES(?,?,?,?,?,?)",
   findLoginAccount:
-    'SELECT id,email,full_name AS name,username,profile_image_url AS "profileImageUrl",EXISTS(SELECT 1 FROM authentication_identities gi WHERE gi.user_id=users.id AND gi.provider_name=\'google.com\') AS "googleLinked",password_hash,account_status,(email_verified_at IS NOT NULL) AS "emailVerified",is_admin AS "isAdmin",created_at AS "createdAt" FROM users WHERE email=?',
+    'SELECT id,email,full_name AS name,username,profile_image_url AS "profileImageUrl",EXISTS(SELECT 1 FROM authentication_identities gi WHERE gi.user_id=users.id AND gi.provider_name=\'google.com\') AS "googleLinked",verified_badge AS badge,password_hash,account_status,(email_verified_at IS NOT NULL) AS "emailVerified",is_admin AS "isAdmin",created_at AS "createdAt" FROM users WHERE email=?',
   recordLogin: "UPDATE users SET last_login_at=utc_now() WHERE id=?",
   revokeSession: "UPDATE sessions SET revoked_at=utc_now() WHERE token_hash=?",
   findCurrentProfile:

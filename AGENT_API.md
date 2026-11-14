@@ -33,7 +33,7 @@ export AGENT_API_KEY="lak_your-key-here"
 npm run db:migrate
 ```
 
-**2. Create a key.** It publishes as one existing member account. The default is
+**2. Create a key.** The easiest way is the admin portal: **Admin > Platform > Agent API keys > New key**. Pick a name, the member account it posts as and a writes-per-hour limit, then copy the key from the dialog (it is shown once). You can revoke keys on the same page. The command line below does the same. A key publishes as one existing member account. The default is
 the official **LaidOff News** account (`news@laidoffcircle.com`, gold badge,
 created by migration 014), so posts appear under that name.
 

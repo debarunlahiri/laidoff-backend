@@ -14,7 +14,9 @@ import {
   warningTypes,
 } from "../services/email-templates.js";
 import { adminConsoleQueries as sql } from "../queries/admin-console.queries.js";
-import { hashPassword } from "../utils/security.js";
+import { randomUUID } from "node:crypto";
+import { agentQueries } from "../queries/agent.queries.js";
+import { hashPassword, newToken, tokenHash } from "../utils/security.js";
 import { passwordProblem } from "../utils/password-strength.js";
 
 // Mounted behind the administrator check in admin.js. Every mutation here is
@@ -146,6 +148,54 @@ adminConsole.post("/users/:id/set-password", async (req, res) => {
     userId: id,
   });
   res.json({ updated: true, revoked: result.affectedRows ?? 0 });
+});
+
+// ---------- Agent API keys (see AGENT_API.md) ----------
+// The key itself is returned once, on creation, as `apiKey` (redacted in logs);
+// only its hash is stored, so it can never be shown again.
+adminConsole.get("/agent-keys", async (_req, res) => {
+  res.json({ items: await query(agentQueries.listKeys) });
+});
+adminConsole.post("/agent-keys", async (req, res) => {
+  const b = z
+    .strictObject({
+      name: z.string().trim().min(1, "Give the key a name").max(80),
+      account: z
+        .email()
+        .max(254)
+        .transform((v) => v.toLowerCase())
+        .default("news@laidoffcircle.com"),
+      writesPerHour: z.coerce.number().int().min(1).max(1000).default(60),
+    })
+    .parse(req.body);
+  const [account] = await query(agentQueries.findAccount, [b.account]);
+  if (!account) throw new HttpError(404, `No account found for ${b.account}`);
+  if (account.status !== "active")
+    throw new HttpError(400, `${b.account} is not an active account`);
+  const apiKey = `lak_${newToken()}`;
+  const id = randomUUID();
+  await query(agentQueries.createKey, [
+    id,
+    b.name,
+    tokenHash(apiKey),
+    apiKey.slice(0, 8),
+    account.id,
+    b.writesPerHour,
+  ]);
+  res.status(201).json({
+    id,
+    name: b.name,
+    account: b.account,
+    accountName: account.name,
+    writesPerHour: b.writesPerHour,
+    apiKey,
+  });
+});
+adminConsole.post("/agent-keys/:id/revoke", async (req, res) => {
+  const result = await query(agentQueries.revokeKey, [uuid(req.params.id)]);
+  if (!result.affectedRows)
+    throw new HttpError(404, "No active key with that id");
+  res.json({ revoked: true });
 });
 
 // ---------- Content ----------
